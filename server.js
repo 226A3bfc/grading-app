@@ -55,7 +55,6 @@ io.on('connection', (socket) => {
 
     socket.on('updateData', async (data) => {
         try {
-            // ... (โค้ดส่วนนี้เหมือนเดิม)
             if (data.activeCourse) {
                 await Course.findOneAndUpdate({ id: data.activeCourse.id }, data.activeCourse, { upsert: true, new: true });
             }
