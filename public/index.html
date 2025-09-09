@@ -608,13 +608,15 @@
     // Connect to the server via Socket.IO
     const socket = io();
 
+    // Data for dropdowns - these will be received from the server
+    let subjectsList = [];
+    let gradeLevelsList = [];
+    let academicYears = [];
+    let semesters = [];
+
 
     // Colors for category headers in tables
     const tableHeaderColors = ['#1e3a8a', '#064e3b', '#78350f', '#991b1b', '#5b21b6'];
-    // List of available subjects
-    const subjectsList = ['English', 'Maths', 'Science', 'Thai', 'ICT', 'Global Skills', 'ART', 'Sport Club', 'Geography', 'Music', 'Wellbeing', 'History', 'Data Literacy', 'Reading & Presentation', 'Problem Solving', 'Chinese', 'Writing', 'Presentation'];
-    // List of available grade levels
-    const gradeLevelsList = Array.from({ length: 13 }, (_, i) => `Y${i + 1}`);
 
     // Helper function to format numbers (remove .00 if integer)
     function formatNumber(value) {
@@ -827,15 +829,7 @@
 
         subjectSelect.innerHTML = '<option value="">Select Subject</option>' + subjectsList.map(s => `<option value="${s}">${s}</option>`).join('');
         gradeLevelSelect.innerHTML = '<option value="">Select Grade</option>' + gradeLevelsList.map(g => `<option value="${g}">${g}</option>`).join('');
-
-        const currentYear = new Date().getFullYear();
-        const academicYears = [];
-        for (let i = 0; i <= 10; i++) {
-            academicYears.push(currentYear + i);
-        }
         academicYearSelect.innerHTML = '<option value="">Select Academic Year</option>' + academicYears.map(y => `<option value="${y}">${y}</option>`).join('');
-
-        const semesters = ['Term 1', 'Term 2', 'Term 3'];
         semesterSelect.innerHTML = '<option value="">Select Semester</option>' + semesters.map(s => `<option value="${s}">${s}</option>`).join('');
 
         // Restore previous selections or set defaults
@@ -2603,7 +2597,7 @@
             document.getElementById('loading-text').textContent = "Connected. Requesting data...";
             // Request initial data from the server
             socket.emit('requestInitialData', {
-                // You can pass local storage values to help the server find the right data if needed
+                // ส่งข้อมูลบางส่วนเพื่อช่วยเซิร์ฟเวอร์ในการโหลดข้อมูลที่ถูกต้อง
                 academicYear: localStorage.getItem('selectedAcademicYear') || '',
                 semester: localStorage.getItem('selectedSemester') || '',
                 subject: localStorage.getItem('selectedSubject') || '',
@@ -2615,6 +2609,15 @@
         // Listen for initial data from the server
         socket.on('initialData', (data) => {
             document.getElementById('loading-text').textContent = "Data received. Initializing app...";
+            // Assign data to global variables
+            courses = data.courses;
+            students = data.students;
+            subjectsList = data.subjectsList;
+            gradeLevelsList = data.gradeLevelsList;
+            academicYears = data.academicYears;
+            semesters = data.semesters;
+            
+            // Re-render the UI
             handleDataFromServer(data);
             populateDropdowns();
             updateCourseSelection();
