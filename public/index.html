@@ -1,0 +1,2642 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grading Sheet v3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617; /* slate-950 */
+            color: #e2e8f0; /* slate-200 */
+        }
+        .card {
+            background-color: #0f172a; /* slate-900 */
+            border: 1px solid #1e293b; /* slate-800 */
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        }
+        input, select {
+            background-color: #1e293b; /* slate-800 */
+            border: 1px solid #334155; /* slate-700 */
+            color: #e2e8f0; /* slate-200 */
+            border-radius: 0.375rem;
+            transition: all 0.2s ease-in-out;
+        }
+        input:focus, select:focus {
+            outline: 2px solid #4f46e5;
+            outline-offset: 2px;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+        }
+        input::placeholder { color: #94a3b8; /* slate-400 */ }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        .tab-button.active { background-color: #4f46e5; color: white; }
+        .tab-button:not(.active) { background-color: #1e293b; color: #94a3b8; }
+
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details > summary .summary-arrow { transition: transform 0.2s; display: inline-block; }
+        details[open] > summary .summary-arrow { transform: rotate(90deg); }
+
+        .table-container::-webkit-scrollbar { height: 8px; }
+        .table-container::-webkit-scrollbar-track { background: #1e293b; }
+        .table-container::-webkit-scrollbar-thumb { background: #64748b; border-radius: 4px; }
+        .table-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .sticky-col { position: sticky; left: 0; z-index: 10; background-color: #0f172a; }
+        .sticky-header { position: sticky; top: 0; z-index: 20; background-color: #1e293b; }
+        /* Ensure all cells in score table have borders */
+        #score-input-table table, #score-input-table th, #score-input-table td {
+            border: 1px solid #1e293b; /* slate-800 */
+        }
+        #score-input-table table {
+            border-collapse: collapse; /* Ensure borders collapse */
+        }
+        #score-input-table thead th.sticky-col { z-index: 30; background-color: #1e293b;}
+
+        .disabled-section { pointer-events: none; opacity: 0.5; position: relative; }
+        .disabled-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(2, 6, 23, 0.7);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 1.1rem; color: #94a3b8;
+            text-align: center; border-radius: 0.5rem; z-index: 40;
+        }
+
+        /* Toast Notification */
+        #toast {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: bottom 0.5s ease-in-out;
+            z-index: 100;
+        }
+        #toast.show { bottom: 20px; }
+        #toast.success { background-color: #10b981; }
+        #toast.error { background-color: #ef4444; }
+        #toast.info { background-color: #3b82f6; }
+
+
+        /* Print Styles */
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { position: absolute; left: 0; top: 0; width: 100%; color: black; }
+            .table-container { overflow: visible; }
+            .print-bg-white { background-color: white !important; }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            color: white;
+            flex-direction: column;
+            gap: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p id="loading-text">Loading...</p>
+    </div>
+
+    <header class="max-w-7xl mx-auto mb-8 flex justify-between items-center print:hidden">
+        <div class="flex items-center gap-4">
+            <img id="school-logo" src="https://placehold.co/64x64/1e293b/e2e8f0?text=Logo" alt="School Logo" class="w-16 h-16 rounded-lg object-cover shadow-md" onerror="this.onerror=null;this.src='https://placehold.co/64x64/1e293b/e2e8f0?text=Logo';">
+            <div>
+                <h1 class="text-3xl font-bold text-indigo-400">Grading Sheet</h1>
+                <p class="text-slate-400">A real-time collaborative grading tool.</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="how-to-use-button" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2" onclick="showHowToUseModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-info"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                How to Use
+            </button>
+            <button id="reset-course-button" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors flex items-center gap-2" onclick="showResetConfirmationModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                Reset Course
+            </button>
+            <button id="admin-view-button" class="p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 bg-slate-800 hover:bg-slate-700 transition-colors" onclick="showAdminPasswordModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                </button>
+            <button id="settings-button" class="p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 bg-slate-800 hover:bg-slate-700 transition-colors" onclick="showSettingsModal()">
+                <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto space-y-8">
+        <div class="p-6 rounded-lg card print:hidden">
+            <h2 class="text-xl font-semibold mb-4">1. Select Academic Period</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="select-academic-year" class="block text-sm font-medium text-slate-400 mb-1">Academic Year</label>
+                    <select id="select-academic-year" class="p-2 w-full" onchange="updateAcademicYearSelection()"></select>
+                </div>
+                <div>
+                    <label for="select-semester" class="block text-sm font-medium text-slate-400 mb-1">Semester</label>
+                    <select id="select-semester" class="p-2 w-full" onchange="updateSemesterSelection()"></select>
+                </div>
+            </div>
+            <div id="academic-period-status" class="p-3 rounded-md text-center font-medium mt-4 hidden">Please select both Academic Year and Semester.</div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 print:hidden">
+            <details class="p-6 rounded-lg card" open>
+                <summary class="text-xl font-semibold cursor-pointer flex items-center gap-2">
+                    <span class="summary-arrow">▶</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                    2. Select Course
+                </summary>
+                <div id="course-selection-section" class="mt-6 p-4 rounded-md border space-y-3 card disabled-section">
+                    <div id="course-selection-overlay" class="disabled-overlay">
+                        <span>Please select an Academic Year and Semester above.</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label for="select-subject" class="block text-sm font-medium text-slate-400 mb-1">Subject</label>
+                            <select id="select-subject" class="p-2 w-full" onchange="updateCourseSelection()"></select>
+                        </div>
+                        <div>
+                            <label for="select-grade-level" class="block text-sm font-medium text-slate-400 mb-1">Grade Level</label>
+                            <select id="select-grade-level" class="p-2 w-full" onchange="updateCourseSelection()"></select>
+                        </div>
+                        <div>
+                            <label for="select-room" class="block text-sm font-medium text-slate-400 mb-1">Room</label>
+                            <select id="select-room" class="p-2 w-full" onchange="updateCourseSelection()">
+                                <option value="">Select Room</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="E">E</option>
+                                <option value="F">F</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="course-selection-status" class="p-3 rounded-md text-center font-medium hidden"></div>
+                </div>
+            </details>
+            <details class="p-6 rounded-lg card" open>
+                <summary class="text-xl font-semibold cursor-pointer flex items-center gap-2">
+                    <span class="summary-arrow">▶</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    3. Teacher Info
+                </summary>
+                <div id="teacher-info-container" class="mt-6 p-4 rounded-md border space-y-3 card disabled-section">
+                    <div id="teacher-info-container-overlay" class="disabled-overlay">
+                        <span>Please select a Course above.</span>
+                    </div>
+                    <div id="teacher-info-display" class="hidden">
+                        <p class="text-lg font-semibold text-white" id="display-teacher-name"></p>
+                        <p class="text-sm text-slate-400" id="display-teacher-id"></p>
+                        <div class="flex gap-2 mt-3">
+                            <button id="edit-teacher-info-button" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors flex items-center justify-center gap-2" onclick="editTeacherInfo()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                Edit Info
+                            </button>
+                            <button id="delete-teacher-info-button" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors flex items-center justify-center gap-2" onclick="showDeleteTeacherConfirmation()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                Delete Info
+                            </button>
+                        </div>
+                    </div>
+                    <div id="teacher-info-edit-form">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label for="teacher-real-name" class="block text-sm font-medium text-slate-400 mb-1">Full Name <span class="text-red-500">*</span></label>
+                                <input type="text" id="teacher-real-name" placeholder="Enter your full name" class="p-2 w-full teacher-info-input" oninput="checkTeacherFormValidity()">
+                            </div>
+                            <div>
+                                <label for="teacher-id" class="block text-sm font-medium text-slate-400 mb-1">Teacher ID</label>
+                                <input type="text" id="teacher-id" placeholder="Enter your ID" class="p-2 w-full teacher-info-input">
+                            </div>
+                        </div>
+                        <button id="save-teacher-info-button" onclick="saveTeacherInfo()" class="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:bg-indigo-800 disabled:text-slate-400 transition-colors flex items-center justify-center gap-2 mt-3" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Save Info
+                        </button>
+                        <p id="save-teacher-hint" class="text-sm text-yellow-400 mt-2 hidden text-center">
+                            Click 'Save Info' to apply changes and unlock other sections.
+                        </p>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <div id="main-content-area" class="disabled-section">
+            <div id="main-content-overlay" class="disabled-overlay">
+                <span>Please select an Academic Year, Semester, and Course, then save your Teacher Info to continue.</span>
+            </div>
+
+            <details class="p-6 rounded-lg card" open>
+                <summary class="text-xl font-semibold cursor-pointer flex items-center gap-2">
+                    <span class="summary-arrow">▶</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                    4. Setup Grading Components
+                </summary>
+                <div class="mt-6">
+                    <h3 class="font-semibold text-lg mb-3">1. Manage Assessment Components (e.g., Projects & Presentations, Long Test)</h3>
+                    <div class="p-4 rounded-md border space-y-3 card">
+                        <div id="grading-period-list" class="space-y-2"></div>
+                        <div class="flex flex-col sm:flex-row gap-4 mt-3 border-t pt-4 border-slate-800">
+                            <input type="text" id="new-grading-period-name" placeholder="New Component Name (e.g., Projects)" class="flex-grow p-3">
+                            <input type="number" id="new-grading-period-weight" placeholder="Weight (%)" class="w-full sm:w-32 p-3">
+                            <button onclick="addGradingPeriod()" class="bg-blue-600 text-white px-5 py-3 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Add Component
+                            </button>
+                        </div>
+                        <div class="text-right mt-2">
+                            <p id="total-grading-period-weight-info" class="font-medium">Total Component Weight: <span id="current-total-grading-period-weight">0</span>%</p>
+                            <p id="grading-period-warning" class="text-red-500 font-medium hidden">⚠️ Total component weight must be 100%</p>
+                        </div>
+                    </div>
+
+                    <h3 class="font-semibold text-lg mt-6 mb-3">2. Select Assessment Component to Manage Categories</h3>
+                    <div class="p-4 rounded-md border space-y-3 card">
+                        <select id="select-grading-period" class="p-2 w-full" onchange="selectGradingPeriod()"></select>
+                        <div id="selected-grading-period-status" class="p-3 rounded-md text-center font-medium hidden"></div>
+                    </div>
+
+                    <h3 class="font-semibold text-lg mt-6 mb-3">3. Manage Categories within <span id="current-period-name" class="text-indigo-300">Selected Assessment Component</span></h3>
+                    <div id="category-management-section" class="disabled-section">
+                        <div id="category-management-overlay" class="disabled-overlay">
+                            <span>Please select an Assessment Component above to manage categories.</span>
+                        </div>
+                        <div id="category-settings" class="space-y-4"></div>
+                        <div class="flex flex-col sm:flex-row gap-4 mt-6 border-t pt-4 border-slate-800">
+                            <input type="text" id="new-category-name" placeholder="New Category Name (e.g., Homework)" class="flex-grow p-3">
+                            <input type="number" id="new-category-weight" placeholder="Weight (%)" class="w-full sm:w-32 p-3">
+                            <button onclick="addCategory()" class="bg-blue-600 text-white px-5 py-3 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Add Category
+                            </button>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-4 mt-4">
+                            <input type="file" id="category-csv-file-input" accept=".csv" class="hidden" onchange="handleCategoryCsvImport(event)">
+                            <button onclick="document.getElementById('category-csv-file-input').click()" class="w-full bg-slate-700 text-slate-200 px-4 py-2 rounded-md hover:bg-slate-600 transition-colors flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                Import Categories (CSV)
+                            </button>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-2">Format: `categoryName,weight` (e.g., `Participation,10`)</p>
+                        <div class="text-right mt-2">
+                            <p id="total-category-weight-info" class="font-medium">Total Category Weight: <span id="current-total-category-weight">0</span>%</p>
+                            <p id="category-weight-warning" class="text-red-500 font-medium hidden">⚠️ Total category weight must be 100% within this component</p>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="p-6 rounded-lg card" open>
+                <summary class="text-xl font-semibold cursor-pointer flex items-center gap-2">
+                    <span class="summary-arrow">▶</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    5. Student Management
+                </summary>
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-4 rounded-md border space-y-3 card">
+                        <h3 class="font-semibold text-lg">Add New Student</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" id="new-student-real-name" placeholder="Full Name" class="p-2 col-span-2 new-student-input" oninput="checkAddStudentFormValidity()">
+                            <input type="text" id="new-student-nickname" placeholder="Nickname" class="p-2 col-span-2 new-student-input">
+                            <input type="text" id="new-student-id" placeholder="Student ID" class="p-2 new-student-input" oninput="checkAddStudentFormValidity()">
+                            <input type="number" id="new-student-roll-number" placeholder="Roll Number" class="p-2 new-student-input" oninput="checkAddStudentFormValidity()">
+                        </div>
+                        <button id="add-student-button" onclick="addStudent()" class="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-green-800 disabled:text-slate-400 transition-colors flex items-center justify-center gap-2" disabled>Add Student</button>
+                    </div>
+                    <div class="p-4 rounded-md border flex flex-col items-center justify-center text-center card">
+                        <h3 class="font-semibold text-lg">Import from CSV</h3>
+                        <p class="text-sm text-slate-400 my-2">Format: `studentId,realName,nickname,rollNumber`</p>
+                        <p class="text-sm text-slate-400 my-2">(Grade & Room are based on current selection)</p>
+                        <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="handleCsvImport(event)">
+                        <button onclick="document.getElementById('csv-file-input').click()" class="w-full bg-slate-700 text-slate-200 px-4 py-2 rounded-md hover:bg-slate-600 transition-colors flex items-center justify-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            Choose .csv File
+                        </button>
+                    </div>
+                </div>
+                <div id="student-list" class="mt-6 space-y-2"></div>
+            </details>
+
+            <div id="printable-area" class="print-bg-white">
+                <div class="flex justify-center border-b border-slate-800 mb-6 print:hidden">
+                    <button id="score-entry-tab" class="tab-button active px-6 py-3 text-lg font-medium rounded-t-lg" onclick="showTab('score-entry')">Score Entry ✏️</button>
+                    <button id="summary-tab" class="tab-button px-6 py-3 text-lg font-medium rounded-t-lg" onclick="showTab('summary')">Summary & Reports 🏆</button>
+                </div>
+
+                <div id="score-entry-section">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold">Enter Student Scores</h2>
+                        <button onclick="window.print()" class="bg-slate-500 text-white px-4 py-2 rounded-md hover:bg-slate-600 transition-colors print:hidden flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                            Print Table
+                        </button>
+                    </div>
+                    <div id="score-input-table" class="table-container overflow-x-auto"></div>
+                    <p id="score-entry-info" class="text-slate-400 mt-4 text-center hidden"></p>
+                </div>
+
+                <div id="summary-section" class="hidden">
+                    <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                        <h2 class="text-2xl font-semibold">Score Summary & Analysis</h2>
+                        <div class="flex items-center gap-2">
+                            <button onclick="exportScoresToCsv()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors print:hidden flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Export CSV
+                            </button>
+                            <button onclick="window.print()" class="bg-slate-500 text-white px-4 py-2 rounded-md hover:bg-slate-600 transition-colors print:hidden flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                            Print Summary
+                        </button>
+                    </div>
+                    </div>
+                    <div id="advanced-dashboard" class="mb-8 p-6 rounded-lg shadow-inner border card print:hidden">
+                        <h3 class="text-xl font-semibold mb-4">Student Performance Overview</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="relative h-80"><canvas id="student-group-chart"></canvas></div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="p-3 bg-green-900/50 rounded-lg">
+                                    <h5 class="font-bold text-green-300 text-center">Excellent (>=70%)</h5>
+                                    <ul id="group-excellent" class="mt-2 text-sm text-green-400 list-disc list-inside"></ul>
+                                </div>
+                                <div class="p-3 bg-yellow-900/50 rounded-lg">
+                                    <h5 class="font-bold text-yellow-300 text-center">Average (50-69%)</h5>
+                                    <ul id="group-average" class="mt-2 text-sm text-yellow-400 list-disc list-inside"></ul>
+                                </div>
+                                <div class="p-3 bg-red-900/50 rounded-lg">
+                                    <h5 class="font-bold text-red-300 text-center">Needs Improvement (<50%)</h5>
+                                    <ul id="group-improvement" class="mt-2 text-sm text-red-400 list-disc list-inside"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="summary-table" class="table-container overflow-x-auto"></div>
+                    <p id="summary-info" class="text-slate-400 mt-4 text-center"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="alert-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="p-6 rounded-lg shadow-xl max-w-sm w-full card">
+            <h3 id="alert-title" class="text-xl font-semibold mb-4">Notification</h3>
+            <p id="alert-message" class="mb-6 text-slate-300"></p>
+            <div class="flex justify-end">
+                <button onclick="hideAlert()" class="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="p-6 rounded-lg shadow-xl max-w-md w-full card">
+            <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                Settings
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label for="settings-logo-url" class="block text-sm font-medium text-slate-400">School Logo URL</label>
+                    <input type="url" id="settings-logo-url" placeholder="Paste image URL here" class="mt-1 p-2 w-full">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="hideSettingsModal()" class="bg-slate-700 text-slate-200 px-4 py-2 rounded-md hover:bg-slate-600">Cancel</button>
+                <button id="save-settings-button" onclick="saveSettings()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-password-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="p-6 rounded-lg shadow-xl max-w-sm w-full card">
+            <h3 class="text-xl font-semibold mb-4">Admin Access</h3>
+            <p class="text-slate-400 mb-4">Please enter the admin password to view the dashboard.</p>
+            <div>
+                <label for="admin-password-input" class="block text-sm font-medium text-slate-400">Password</label>
+                <input type="password" id="admin-password-input" class="mt-1 p-2 w-full">
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="hideAdminPasswordModal()" class="bg-slate-700 text-slate-200 px-4 py-2 rounded-md hover:bg-slate-600">Cancel</button>
+                <button onclick="checkAdminPassword()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Enter</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reset-confirmation-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="p-6 rounded-lg shadow-xl max-w-sm w-full card">
+            <h3 class="text-xl font-semibold mb-4 text-red-400">Confirm Reset</h3>
+            <p class="text-slate-300 mb-4">This will clear all categories and teacher information for the currently selected course, and remove all associated scores from students for this course.</p>
+            <p class="text-slate-300 mb-4 font-bold">Please enter the password "HASTIN" to confirm:</p>
+            <div>
+                <label for="reset-password-input" class="block text-sm font-medium text-slate-400">Password</label>
+                <input type="password" id="reset-password-input" class="mt-1 p-2 w-full" placeholder="Enter HASTIN">
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="hideResetConfirmationModal()" class="bg-slate-700 text-slate-200 px-4 py-2 rounded-md hover:bg-slate-600">Cancel</button>
+                <button onclick="confirmResetCourse()" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Confirm Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-dashboard-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50 p-4">
+        <div class="p-6 rounded-lg shadow-xl max-w-4xl w-full h-[90vh] flex flex-col card">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold">Admin Dashboard: All Courses Overview</h3>
+                <button onclick="hideAdminDashboardModal()" class="text-slate-400 hover:text-white text-3xl font-bold">&times;</button>
+            </div>
+            <div id="admin-dashboard-content" class="flex-grow overflow-y-auto space-y-6">
+                </div>
+        </div>
+    </div>
+
+    <div id="score-breakdown-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="p-6 rounded-lg shadow-xl max-w-lg w-full card">
+            <h3 id="score-breakdown-modal-title" class="text-xl font-semibold mb-4"></h3>
+            <div id="score-breakdown-content" class="space-y-3 mb-6"></div>
+            <div class="flex justify-end">
+                <button onclick="hideScoreBreakdownModal()" class="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="p-6 rounded-lg shadow-xl max-w-sm w-full card">
+            <h3 id="confirmation-title" class="text-xl font-semibold mb-4 text-red-400">Confirm Action</h3>
+            <p id="confirmation-message" class="mb-6 text-slate-300"></p>
+            <div class="flex justify-end gap-2">
+                <button onclick="hideConfirmationModal()" class="bg-slate-700 text-slate-200 px-4 py-2 rounded-md hover:bg-slate-600">Cancel</button>
+                <button id="confirm-action-button" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="how-to-use-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center hidden z-50 p-4">
+        <div class="p-6 rounded-lg shadow-xl max-w-2xl w-full h-[90vh] flex flex-col card">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold">How to Use Grading Sheet</h3>
+                <button onclick="hideHowToUseModal()" class="text-slate-400 hover:text-white text-3xl font-bold">&times;</button>
+            </div>
+            <div class="flex-grow overflow-y-auto text-slate-300 space-y-4">
+                <p>Welcome to the Grading Sheet application! Follow these steps to set up your courses, manage students, enter scores, and view reports.</p>
+
+                <h4 class="text-xl font-semibold text-indigo-400">Step-by-Step Guide:</h4>
+
+                <ol class="list-decimal list-inside space-y-3">
+                    <li>
+                        <p class="font-medium text-white"><strong>1. Select Academic Period:</strong></p>
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>Choose the **Academic Year** (current year + 10 years ahead) and **Semester** (Term 1, Term 2, Term 3).</li>
+                            <li><span class="text-red-400">This is mandatory.</span> The rest of the app will be disabled until both are selected.</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <p class="font-medium text-white"><strong>2. Select Course:</strong></p>
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>Select the **Subject**, **Grade Level**, and **Room** for your course.</li>
+                            <li>If it's a new combination, a new course will be created. If it exists, it will be loaded.</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <p class="font-medium text-white"><strong>3. Teacher Info:</strong></p>
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>Enter your **Full Name** (required) and **Teacher ID**.</li>
+                            <li>Click **"Save Info"**. Once saved, the form will hide, and "Edit Info" / "Delete Info" buttons will appear.</li>
+                            <li>You can also set a **School Logo URL** in the Settings modal (top right gear icon).</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <p class="font-medium text-white"><strong>4. Setup Grading Components:</strong></p>
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li><strong>Manage Assessment Components:</strong> Add your main assessment components (e.g., "Projects & Presentations", "Long Test") with their overall weight (e.g., 30%, 70%). The total weight for all components must be 100%.</li>
+                            <li><strong>Select Assessment Component to Manage Categories:</strong> Choose one of your main components to define its sub-categories.</li>
+                            <li><strong>Manage Categories within [Selected Component]:</strong> Add **Categories** (e.g., "Quizzes", "Homework") within the selected component. Each category also has a weight. The total weight of categories within a component must be 100%.</li>
+                            <li>You can add **Sub-items** (e.g., "Quiz 1", "HW 2") to each category, each with its own max score.</li>
+                            <li>Use the **"Import Categories (CSV)"** button to quickly add multiple categories. Format: `categoryName,weight` (e.g., `Participation,10`).</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <p class="font-medium text-white"><strong>5. Student Management:</strong></p>
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>Add new students manually by filling in their details.</li>
+                            <li>Use **"Import from CSV"** to add multiple students. Format: `studentId,realName,nickname,rollNumber` (e.g., `S001,John Doe,Johnny,1`).</li>
+                            <li>You can **Edit** or **Delete** students from the list. Deleting requires confirmation.</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <p class="font-medium text-white"><strong>Score Entry & Summary:</strong></p>
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>Switch between **"Score Entry"** tab to input scores for each student in the detailed table. Press `Enter` to move to the next input field.</li>
+                            <li>Go to **"Summary & Reports"** tab to see overall scores, grades, and performance breakdowns (Excellent, Average, Needs Improvement).</li>
+                            <li>The **Admin Dashboard** (shield icon in header) provides an overview of all courses and teacher progress.</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <p class="font-medium text-white"><strong>Reset Course:</strong></p>
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>The **"Reset Course"** button (trash icon) will clear all data for the currently selected course. This requires a password for confirmation.</li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <p>All your data is saved in real-time to the cloud! Enjoy using the Grading Sheet!</p>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button onclick="hideHowToUseModal()" class="bg-indigo-600 text-white px-5 py-2 rounded-md hover:bg-indigo-700">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class=""></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+    // --- GLOBAL STATE & CONSTANTS ---
+    let courses = []; // Stores all course data
+    let students = []; // Stores all student data
+    let activeCourse = null; // Currently selected course
+    let selectedAcademicYear = ''; // Global variable for academic year
+    let selectedSemester = ''; // Global variable for semester
+    let selectedAssessmentComponent = null; // Currently selected main assessment component for category management
+    let studentGroupChartInstance = null; // Chart.js instance for student performance
+    let editingCategoryIndex = -1; // Index of category being edited, -1 if none
+    let originalCategoryState = null; // Backup of category state during editing
+    let editingAssessmentComponentIndex = -1; // Index of assessment component being edited
+    let originalAssessmentComponentState = null; // Backup of assessment component state during editing
+    let editingStudentId = null; // ID of student being edited, null if none
+    let originalStudentState = null; // Backup of student state during editing
+    let currentConfirmCallback = null; // Callback for generic confirmation modal
+    
+    // Connect to the server via Socket.IO
+    const socket = io();
+
+
+    // Colors for category headers in tables
+    const tableHeaderColors = ['#1e3a8a', '#064e3b', '#78350f', '#991b1b', '#5b21b6'];
+    // List of available subjects
+    const subjectsList = ['English', 'Maths', 'Science', 'Thai', 'ICT', 'Global Skills', 'ART', 'Sport Club', 'Geography', 'Music', 'Wellbeing', 'History', 'Data Literacy', 'Reading & Presentation', 'Problem Solving', 'Chinese', 'Writing', 'Presentation'];
+    // List of available grade levels
+    const gradeLevelsList = Array.from({ length: 13 }, (_, i) => `Y${i + 1}`);
+
+    // Helper function to format numbers (remove .00 if integer)
+    function formatNumber(value) {
+        const num = parseFloat(value);
+        if (isNaN(num) || !isFinite(num)) return 'N/A'; // Handle NaN or Infinity
+        if (num === Math.floor(num)) return num.toString();
+        return num.toFixed(2);
+    }
+
+    // --- DATA PERSISTENCE (Socket.IO & Server) ---
+    // Function to handle data received from the server
+    function handleDataFromServer(data) {
+        // Update global variables
+        courses = data.courses;
+        students = data.students;
+
+        // Restore active course based on ID or select the first course if a new session
+        const activeCourseId = localStorage.getItem('gradingSheetActiveCourseId');
+        if (activeCourseId) {
+            activeCourse = courses.find(c => c.id === activeCourseId) || null;
+        } else if (courses.length > 0) {
+            activeCourse = courses[0];
+            localStorage.setItem('gradingSheetActiveCourseId', activeCourse.id);
+        } else {
+            activeCourse = null;
+        }
+
+        // Restore selected assessment component
+        const selectedComponentId = localStorage.getItem('gradingSheetSelectedAssessmentComponentId');
+        if (activeCourse && activeCourse.assessmentComponents) {
+            selectedAssessmentComponent = activeCourse.assessmentComponents.find(p => p.id === selectedComponentId) || null;
+        } else {
+            selectedAssessmentComponent = null;
+        }
+
+        // Re-render UI based on the new data
+        updateMainContentState();
+    }
+
+
+    // --- MODAL & UI HELPERS ---
+    // Displays a toast notification
+    function showToast(message, type = 'success', duration = 3000) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = ``; // Clear existing classes
+        toast.classList.add(type, 'show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, duration);
+    }
+
+    // Displays a custom alert modal
+    function showAlert(title, message) {
+        document.getElementById('alert-title').textContent = title;
+        document.getElementById('alert-message').textContent = message;
+        document.getElementById('alert-modal').classList.remove('hidden');
+    }
+    // Hides the custom alert modal
+    function hideAlert() {
+        document.getElementById('alert-modal').classList.add('hidden');
+    }
+
+    // Generic confirmation modal functions
+    function showConfirmationModal(title, message, onConfirmCallback) {
+        document.getElementById('confirmation-title').textContent = title;
+        document.getElementById('confirmation-message').textContent = message;
+        currentConfirmCallback = onConfirmCallback; // Store the callback
+        document.getElementById('confirmation-modal').classList.remove('hidden');
+    }
+
+    function hideConfirmationModal() {
+        document.getElementById('confirmation-modal').classList.add('hidden');
+        currentConfirmCallback = null; // Clear the callback
+    }
+
+    // Event listener for the generic confirm button
+    document.getElementById('confirm-action-button').addEventListener('click', () => {
+        if (currentConfirmCallback) {
+            currentConfirmCallback(); // Execute the stored callback
+        }
+        hideConfirmationModal(); // Hide the modal after action
+    });
+
+
+    function showResetConfirmationModal() {
+        if (!activeCourse) {
+            showAlert("Action Required", "Please select a course before attempting to reset its data.");
+            return;
+        }
+        document.getElementById('reset-password-input').value = ''; // Clear password field
+        document.getElementById('reset-confirmation-modal').classList.remove('hidden');
+    }
+    function hideResetConfirmationModal() {
+        document.getElementById('reset-confirmation-modal').classList.add('hidden');
+    }
+
+    function confirmResetCourse() {
+        const passwordInput = document.getElementById('reset-password-input').value;
+        if (passwordInput === "HASTIN") { // Hardcoded admin password
+            resetCourseData();
+            hideResetConfirmationModal();
+        } else {
+            showAlert("Error", "Incorrect password.");
+            document.getElementById('reset-password-input').value = '';
+        }
+    }
+
+    function showAdminPasswordModal() { 
+        document.getElementById('admin-password-input').value = ''; // Clear password field
+        document.getElementById('admin-password-modal').classList.remove('hidden'); 
+    }
+    function hideAdminPasswordModal() { document.getElementById('admin-password-modal').classList.add('hidden'); }
+    function showSettingsModal() {
+        // Pre-fill logo URL if available for the active course
+        document.getElementById('settings-logo-url').value = activeCourse?.teacher?.logoUrl || '';
+        document.getElementById('settings-modal').classList.remove('hidden');
+    }
+    function hideSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+    // New: How to Use Modal functions
+    function showHowToUseModal() {
+        document.getElementById('how-to-use-modal').classList.remove('hidden');
+    }
+    function hideHowToUseModal() {
+        document.getElementById('how-to-use-modal').classList.add('hidden');
+    }
+
+    function showScoreBreakdownModal(studentId) {
+        const student = students.find(s => s.studentId === studentId);
+        if (!student || !activeCourse) return;
+
+        document.getElementById('score-breakdown-modal-title').textContent = `Score Details for ${student.realName}`;
+        const contentDiv = document.getElementById('score-breakdown-content');
+        contentDiv.innerHTML = activeCourse.assessmentComponents.map(component => { // Iterate through assessment components
+            let componentHtml = `<div class="p-2 border rounded-md bg-slate-700 border-slate-500 mb-2">
+                        <p class="font-bold text-indigo-300">${component.name} (${component.weight}%)</p>`;
+            if (component.categories && component.categories.length > 0) {
+                componentHtml += `<ul class="list-disc list-inside ml-4 text-sm space-y-1">`;
+                component.categories.forEach(cat => {
+                    // Pass component.name to getCategoryScores
+                    const { current, max } = getCategoryScores(student, component.name, cat, activeCourse);
+                    const percentage = max > 0 ? (current / max) * 100 : 0;
+                    componentHtml += `<li>${cat.name} (${cat.weight}% of Component): ${formatNumber(current)}/${formatNumber(max)} (${formatNumber(percentage)}%)`;
+                    if (cat.subItems && cat.subItems.length > 0) {
+                        componentHtml += `<ul class="list-circle list-inside ml-4 text-xs">`;
+                        cat.subItems.forEach(sub => {
+                            // Access scores using component.name and category.name
+                            const subScore = student.scores[activeCourse.id]?.[component.name]?.[cat.name]?.[sub.id] || 0;
+                            componentHtml += `<li>${sub.name}: ${formatNumber(subScore)}/${formatNumber(sub.maxScore)}</li>`;
+                        });
+                        componentHtml += `</ul>`;
+                    }
+                    componentHtml += `</li>`;
+                });
+                componentHtml += `</ul>`;
+            } else {
+                componentHtml += `<p class="text-slate-400 text-xs ml-4">No categories defined for this component.</p>`;
+            }
+            return componentHtml + `</div>`;
+        }).join('');
+        document.getElementById('score-breakdown-modal').classList.remove('hidden');
+    }
+    function hideScoreBreakdownModal() { document.getElementById('score-breakdown-modal').classList.add('hidden'); }
+    function hideAdminDashboardModal() { document.getElementById('admin-dashboard-modal').classList.add('hidden'); }
+
+    function checkAdminPassword() {
+        const password = document.getElementById('admin-password-input').value;
+        if (password === "HASTIN") { // Hardcoded admin password
+            hideAdminPasswordModal(); // <--- Added: Hide the admin password modal
+            renderAdminDashboard(); // Render dashboard content
+            document.getElementById('admin-dashboard-modal').classList.remove('hidden');
+        } else {
+            showAlert("Access Denied", "Incorrect password.");
+            document.getElementById('admin-password-input').value = '';
+        }
+    }
+
+    function saveSettings() {
+        if (!activeCourse) {
+            showToast("Please select a course first.", "error");
+            return;
+        }
+        const logoUrl = document.getElementById('settings-logo-url').value.trim();
+        // Ensure activeCourse.teacher exists before assigning logoUrl
+        if (!activeCourse.teacher) {
+            activeCourse.teacher = {};
+        }
+        activeCourse.teacher.logoUrl = logoUrl;
+        document.getElementById('school-logo').src = logoUrl || 'https://placehold.co/64x64/1e293b/e2e8f0?text=Logo';
+        // Send data to server
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        hideSettingsModal();
+        showToast("Settings saved successfully!");
+    }
+
+    // --- INITIALIZATION ---
+    function populateDropdowns() {
+        const subjectSelect = document.getElementById('select-subject');
+        const gradeLevelSelect = document.getElementById('select-grade-level');
+        const academicYearSelect = document.getElementById('select-academic-year');
+        const semesterSelect = document.getElementById('select-semester');
+
+        // Capture current values before overwriting innerHTML
+        const currentSubject = localStorage.getItem('selectedSubject') || '';
+        const currentGrade = localStorage.getItem('selectedGrade') || '';
+        const currentAcademicYearSelection = localStorage.getItem('selectedAcademicYear') || '';
+        const currentSemesterSelection = localStorage.getItem('selectedSemester') || '';
+        const currentRoom = localStorage.getItem('selectedRoom') || '';
+
+        subjectSelect.innerHTML = '<option value="">Select Subject</option>' + subjectsList.map(s => `<option value="${s}">${s}</option>`).join('');
+        gradeLevelSelect.innerHTML = '<option value="">Select Grade</option>' + gradeLevelsList.map(g => `<option value="${g}">${g}</option>`).join('');
+
+        const currentYear = new Date().getFullYear();
+        const academicYears = [];
+        for (let i = 0; i <= 10; i++) {
+            academicYears.push(currentYear + i);
+        }
+        academicYearSelect.innerHTML = '<option value="">Select Academic Year</option>' + academicYears.map(y => `<option value="${y}">${y}</option>`).join('');
+
+        const semesters = ['Term 1', 'Term 2', 'Term 3'];
+        semesterSelect.innerHTML = '<option value="">Select Semester</option>' + semesters.map(s => `<option value="${s}">${s}</option>`).join('');
+
+        // Restore previous selections or set defaults
+        academicYearSelect.value = currentAcademicYearSelection;
+        semesterSelect.value = currentSemesterSelection;
+        subjectSelect.value = currentSubject;
+        gradeLevelSelect.value = currentGrade;
+        document.getElementById('select-room').value = currentRoom;
+
+        // update global variables to reflect the current UI selection/default
+        selectedAcademicYear = academicYearSelect.value;
+        selectedSemester = semesterSelect.value;
+    }
+
+    // --- UI STATE MANAGEMENT ---
+    // Updates the state of the main content area (enabled/disabled)
+    function updateMainContentState() {
+        const isAcademicPeriodSelected = document.getElementById('select-academic-year').value && document.getElementById('select-semester').value;
+        const academicPeriodStatusDiv = document.getElementById('academic-period-status');
+        const courseSelectionSection = document.getElementById('course-selection-section');
+        const courseSelectionOverlay = document.getElementById('course-selection-overlay');
+        const teacherInfoContainer = document.getElementById('teacher-info-container');
+        const teacherInfoContainerOverlay = document.getElementById('teacher-info-container-overlay');
+
+        if (isAcademicPeriodSelected) {
+            academicPeriodStatusDiv.classList.add('hidden');
+            academicPeriodStatusDiv.className = 'p-3 rounded-md text-center font-medium mt-4 hidden'; // Reset class
+            courseSelectionSection.classList.remove('disabled-section');
+            courseSelectionOverlay.classList.add('hidden');
+        } else {
+            academicPeriodStatusDiv.classList.remove('hidden');
+            academicPeriodStatusDiv.textContent = 'Please select both Academic Year and Semester.';
+            academicPeriodStatusDiv.className = 'p-3 rounded-md text-center font-medium mt-4 bg-yellow-900/50 text-yellow-300';
+            courseSelectionSection.classList.add('disabled-section');
+            courseSelectionOverlay.classList.remove('hidden');
+        }
+
+        // Check if course is selected AND teacher info is saved
+        const isCourseSelected = document.getElementById('select-subject').value && document.getElementById('select-grade-level').value && document.getElementById('select-room').value;
+        const isTeacherInfoSaved = activeCourse && activeCourse.teacher && activeCourse.teacher.realName;
+
+        const isReadyForMainContent = isAcademicPeriodSelected && isCourseSelected && isTeacherInfoSaved;
+
+        const mainContent = document.getElementById('main-content-area');
+        const mainContentOverlay = document.getElementById('main-content-overlay');
+
+        if (isAcademicPeriodSelected && isCourseSelected) { // Only enable teacher info if course is selected
+            teacherInfoContainer.classList.remove('disabled-section');
+            teacherInfoContainerOverlay.classList.add('hidden');
+        } else {
+            teacherInfoContainer.classList.add('disabled-section');
+            teacherInfoContainerOverlay.classList.remove('hidden');
+            teacherInfoContainerOverlay.querySelector('span').textContent = 'Please select a Course above.';
+        }
+
+
+        if (isReadyForMainContent) {
+            mainContent.classList.remove('disabled-section');
+            mainContentOverlay.classList.add('hidden');
+        } else {
+            mainContent.classList.add('disabled-section');
+            mainContentOverlay.classList.remove('hidden');
+            // Update overlay message based on what's missing
+            let overlayMessage = 'Please complete: ';
+            let missingSteps = [];
+            if (!isAcademicPeriodSelected) missingSteps.push('Academic Year & Semester');
+            if (!isCourseSelected) missingSteps.push('Course Selection');
+            if (!isTeacherInfoSaved) missingSteps.push('Teacher Info (and click Save Info)');
+            mainContentOverlay.querySelector('span').textContent = overlayMessage + missingSteps.join(', ') + '.';
+        }
+
+        renderAll(); // Re-render all UI components
+    }
+
+    // --- COURSE & TEACHER LOGIC ---
+    function updateAcademicYearSelection() {
+        selectedAcademicYear = document.getElementById('select-academic-year').value;
+        localStorage.setItem('selectedAcademicYear', selectedAcademicYear);
+        updateCourseSelection(); // Trigger full course selection update
+    }
+
+    function updateSemesterSelection() {
+        selectedSemester = document.getElementById('select-semester').value;
+        localStorage.setItem('selectedSemester', selectedSemester);
+        updateCourseSelection(); // Trigger full course selection update
+    }
+
+    function updateCourseSelection() {
+        const academicYear = document.getElementById('select-academic-year').value;
+        const semester = document.getElementById('select-semester').value;
+        const subject = document.getElementById('select-subject').value;
+        const grade = document.getElementById('select-grade-level').value;
+        const room = document.getElementById('select-room').value;
+        const statusDiv = document.getElementById('course-selection-status');
+        
+        localStorage.setItem('selectedSubject', subject);
+        localStorage.setItem('selectedGrade', grade);
+        localStorage.setItem('selectedRoom', room);
+
+
+        // Only proceed if Academic Year and Semester are selected
+        if (!academicYear || !semester) {
+            activeCourse = null;
+            document.getElementById('school-logo').src = 'https://placehold.co/64x64/1e293b/e2e8f0?text=Logo';
+            statusDiv.textContent = 'Please select Academic Year and Semester first.';
+            statusDiv.className = 'p-3 rounded-md text-center font-medium bg-yellow-900/50 text-yellow-300';
+            statusDiv.classList.remove('hidden');
+            updateMainContentState(); // Update main content state (will disable if not ready)
+            return;
+        }
+
+        if (subject && grade && room) {
+            const courseId = `${subject}-${grade}-${room}-${academicYear}-${semester}`;
+            let course = courses.find(c => c.id === courseId);
+            if (!course) {
+                // Initialize new course with assessmentComponents array
+                course = { id: courseId, subject, gradeLevel: grade, room, academicYear, semester, assessmentComponents: [], teacher: {} };
+                courses.push(course);
+                socket.emit('updateData', { activeCourse: course, students: students });
+                statusDiv.textContent = `New course created: ${subject} (${grade}/${room}) - ${academicYear} ${semester}`;
+                statusDiv.className = 'p-3 rounded-md text-center font-medium bg-blue-900/50 text-blue-300';
+            } else {
+                statusDiv.textContent = `Loaded course: ${subject} (${grade}/${room}) - ${academicYear} ${semester}`;
+                statusDiv.className = 'p-3 rounded-md text-center font-medium bg-green-900/50 text-green-300';
+            }
+            activeCourse = course;
+            localStorage.setItem('gradingSheetActiveCourseId', activeCourse.id);
+
+            // Populate teacher info fields based on active course
+            document.getElementById('teacher-real-name').value = activeCourse.teacher.realName || '';
+            document.getElementById('teacher-id').value = activeCourse.teacher.id || '';
+            const logoUrl = activeCourse.teacher?.logoUrl || '';
+            document.getElementById('school-logo').src = logoUrl || 'https://placehold.co/64x64/1e293b/e2e8f0?text=Logo';
+
+            renderTeacherInfoSection(); // Call to update teacher info display/form
+            checkTeacherFormValidity();
+        } else {
+            activeCourse = null;
+            localStorage.removeItem('gradingSheetActiveCourseId');
+            document.getElementById('school-logo').src = 'https://placehold.co/64x64/1e293b/e2e8f0?text=Logo';
+            statusDiv.textContent = 'Please complete all Course selections.';
+            statusDiv.className = 'p-3 rounded-md text-center font-medium bg-yellow-900/50 text-yellow-300';
+            renderTeacherInfoSection(); // Clear teacher info display
+        }
+        statusDiv.classList.remove('hidden');
+        updateMainContentState();
+        renderAssessmentComponents(); // New: Render assessment components dropdown
+        updateCategoryManagementSectionState(); // New: Update state of category management section
+    }
+
+    function checkTeacherFormValidity() {
+        const realName = document.getElementById('teacher-real-name').value.trim();
+        const saveButton = document.getElementById('save-teacher-info-button');
+        const hint = document.getElementById('save-teacher-hint');
+        
+        // Check if there's an active course AND a full name is entered
+        const isCourseSelected = !!activeCourse; 
+        const isNameEntered = realName.length > 0;
+
+        saveButton.disabled = !(isCourseSelected && isNameEntered);
+
+        if (!saveButton.disabled && (!activeCourse.teacher || !activeCourse.teacher.realName)) {
+            hint.classList.remove('hidden');
+        } else {
+            hint.classList.add('hidden');
+        }
+    }
+
+    function saveTeacherInfo() {
+        if (!activeCourse) return;
+        activeCourse.teacher.realName = document.getElementById('teacher-real-name').value.trim();
+        activeCourse.teacher.id = document.getElementById('teacher-id').value.trim();
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        showToast('Teacher information saved!', 'success');
+        renderTeacherInfoSection(); // Update UI after saving
+        updateMainContentState(); // <--- This call is crucial for unlocking main content
+    }
+
+    // New function to render teacher info section (display or edit form)
+    function renderTeacherInfoSection() {
+        const displayDiv = document.getElementById('teacher-info-display');
+        const editFormDiv = document.getElementById('teacher-info-edit-form');
+        const teacherNameInput = document.getElementById('teacher-real-name');
+        const teacherIdInput = document.getElementById('teacher-id');
+        const saveTeacherHint = document.getElementById('save-teacher-hint');
+
+
+        if (activeCourse && activeCourse.teacher && activeCourse.teacher.realName) {
+            // Show display mode
+            displayDiv.classList.remove('hidden');
+            editFormDiv.classList.add('hidden');
+            document.getElementById('display-teacher-name').textContent = activeCourse.teacher.realName;
+            document.getElementById('display-teacher-id').textContent = `ID: ${activeCourse.teacher.id || 'N/A'}`;
+            saveTeacherHint.classList.add('hidden'); // Hide hint when info is displayed
+        } else {
+            // Show edit form mode
+            displayDiv.classList.add('hidden');
+            editFormDiv.classList.remove('hidden');
+            // Clear inputs if no teacher info
+            if (!activeCourse || !activeCourse.teacher || !activeCourse.teacher.realName) {
+                teacherNameInput.value = '';
+                teacherIdInput.value = '';
+            }
+            checkTeacherFormValidity(); // Ensure save button state and hint state are correct
+        }
+    }
+
+    // Function to switch to edit mode for teacher info
+    function editTeacherInfo() {
+        const displayDiv = document.getElementById('teacher-info-display');
+        const editFormDiv = document.getElementById('teacher-info-edit-form');
+        const teacherNameInput = document.getElementById('teacher-real-name');
+        const teacherIdInput = document.getElementById('teacher-id');
+
+        displayDiv.classList.add('hidden');
+        editFormDiv.classList.remove('hidden');
+
+        // Pre-fill form with current activeCourse teacher data
+        teacherNameInput.value = activeCourse.teacher.realName || '';
+        teacherIdInput.value = activeCourse.teacher.id || '';
+        checkTeacherFormValidity();
+    }
+
+    // Function to show confirmation for deleting teacher info
+    function showDeleteTeacherConfirmation() {
+        showConfirmationModal(
+            'Confirm Delete Teacher Info',
+            'Are you sure you want to delete teacher information for this course? This action cannot be undone.',
+            deleteTeacherInfo // Callback function if confirmed
+        );
+    }
+
+    // Function to delete teacher info (called by confirmation modal)
+    function deleteTeacherInfo() {
+        if (!activeCourse) return;
+        activeCourse.teacher = {}; // Clear teacher object
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        showToast('Teacher information deleted!', 'success');
+        renderTeacherInfoSection(); // Update UI after deletion
+        updateMainContentState();
+    }
+
+    function resetCourseData() {
+        if (!activeCourse) return;
+        const courseIdentifier = `${activeCourse.subject} (${activeCourse.gradeLevel}/${activeCourse.room}) - ${activeCourse.academicYear} ${activeCourse.semester}`;
+        // Clear assessment components instead of categories directly
+        activeCourse.assessmentComponents = [];
+        activeCourse.teacher = {};
+        // Remove scores related to this course from all students
+        students.forEach(s => {
+            if (s.scores && s.scores[activeCourse.id]) {
+                delete s.scores[activeCourse.id];
+            }
+        });
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        showToast(`All data for course "${courseIdentifier}" has been reset!`, 'success');
+
+        // Reset course selection dropdowns and status
+        activeCourse = null;
+        selectedAssessmentComponent = null;
+        document.getElementById('select-subject').value = '';
+        document.getElementById('select-grade-level').value = '';
+        document.getElementById('select-room').value = '';
+        document.getElementById('select-academic-year').value = '';
+        document.getElementById('select-semester').value = '';
+        selectedAcademicYear = ''; // Reset global variable
+        selectedSemester = ''; // Reset global variable
+        document.getElementById('course-selection-status').classList.add('hidden');
+        renderTeacherInfoSection(); // Ensure teacher info section is reset
+        renderAssessmentComponents();
+        updateCategoryManagementSectionState();
+        renderAll(); // Re-render all tables after reset
+    }
+
+    // --- NEW: ASSESSMENT COMPONENT LOGIC ---
+    function updateTotalAssessmentComponentWeightDisplay() {
+        const totalWeightSpan = document.getElementById('current-total-grading-period-weight');
+        const warningDiv = document.getElementById('grading-period-warning');
+
+        // Added checks for DOM elements to prevent TypeError if they are not yet rendered
+        if (!totalWeightSpan || !warningDiv) {
+            return; // Exit if elements are not found
+        }
+
+        if (!activeCourse) {
+            totalWeightSpan.textContent = '0';
+            warningDiv.classList.add('hidden');
+            return;
+        }
+        const totalWeight = activeCourse.assessmentComponents.reduce((sum, component) => sum + Number(component.weight), 0);
+        totalWeightSpan.textContent = totalWeight;
+        warningDiv.classList.toggle('hidden', totalWeight === 100 || activeCourse.assessmentComponents.length === 0);
+    }
+
+    function renderAssessmentComponents() {
+        const container = document.getElementById('grading-period-list');
+        const selectDropdown = document.getElementById('select-grading-period');
+        if (!activeCourse) {
+            container.innerHTML = '';
+            selectDropdown.innerHTML = '<option value="">Select an Assessment Component</option>';
+            return;
+        }
+
+        container.innerHTML = activeCourse.assessmentComponents.map((component, index) => {
+            const isEditing = editingAssessmentComponentIndex === index;
+            if (isEditing) {
+                return `
+                    <div class="p-3 rounded-md shadow-sm border border-indigo-500 card flex items-center gap-2">
+                        <input type="text" value="${component.name}" class="grading-period-name-input flex-grow p-2">
+                        <input type="number" value="${component.weight}" class="grading-period-weight-input w-20 p-2 text-center">
+                        <span class="text-slate-400">%</span>
+                        <button onclick="saveAssessmentComponentChanges(${index})" class="bg-green-600 text-white px-3 py-2 rounded-md text-sm">Save</button>
+                        <button onclick="cancelEditAssessmentComponent()" class="bg-slate-400 text-white px-3 py-2 rounded-md text-sm">Cancel</button>
+                    </div>`;
+            } else {
+                return `
+                    <div class="flex items-center gap-2 p-2 rounded-md border card">
+                        <span class="flex-grow font-medium">${component.name} (${component.weight}%)</span>
+                        <button onclick="startEditAssessmentComponent(${index})" class="bg-yellow-600 text-white px-3 py-1 rounded-md text-sm">Edit</button>
+                        <button onclick="showDeleteAssessmentComponentConfirmation(${index})" class="bg-red-600 text-white px-3 py-1 rounded-md text-sm">Delete</button>
+                    </div>`;
+            }
+        }).join('');
+
+        // Populate the select dropdown for assessment components
+        const currentSelectedComponentId = selectedAssessmentComponent ? selectedAssessmentComponent.id : '';
+        selectDropdown.innerHTML = '<option value="">Select an Assessment Component</option>' + activeCourse.assessmentComponents.map(component =>
+            `<option value="${component.id}" ${component.id === currentSelectedComponentId ? 'selected' : ''}>${component.name}</option>`
+        ).join('');
+
+        updateTotalAssessmentComponentWeightDisplay();
+        updateCategoryManagementSectionState(); // Ensure state is updated after rendering components
+    }
+
+    function addGradingPeriod() { // Function name from HTML remains, but it adds an "Assessment Component"
+        if (!activeCourse) return;
+        const nameInput = document.getElementById('new-grading-period-name');
+        const weightInput = document.getElementById('new-grading-period-weight');
+        const name = nameInput.value.trim();
+        const weight = parseFloat(weightInput.value);
+
+        if (!name || isNaN(weight) || weight <= 0) { showToast('Please enter a valid component name and weight.', 'error'); return; }
+        if (activeCourse.assessmentComponents.some(p => p.name.toLowerCase() === name.toLowerCase())) { showToast('Assessment component name already exists.', 'error'); return; }
+        const totalWeight = activeCourse.assessmentComponents.reduce((sum, p) => sum + p.weight, 0);
+        if (totalWeight + weight > 100) { showToast('Total component weight cannot exceed 100%.', 'error'); return; }
+
+        activeCourse.assessmentComponents.push({ id: crypto.randomUUID(), name, weight, categories: [] });
+        nameInput.value = '';
+        weightInput.value = '';
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        renderAssessmentComponents(); // Re-render the list
+        selectGradingPeriod(); // Force re-selection to update UI state
+        renderAll(); // <--- Added: Re-render all tables after structural change
+    }
+
+    function startEditAssessmentComponent(index) {
+        if (editingAssessmentComponentIndex !== -1) { showToast('Please save or cancel the current component edit first.', 'error'); return; }
+        editingAssessmentComponentIndex = index;
+        originalAssessmentComponentState = JSON.parse(JSON.stringify(activeCourse.assessmentComponents[index]));
+        renderAssessmentComponents();
+    }
+
+    function cancelEditAssessmentComponent() {
+        if (originalAssessmentComponentState) {
+            activeCourse.assessmentComponents[editingAssessmentComponentIndex] = originalAssessmentComponentState;
+        }
+        editingAssessmentComponentIndex = -1;
+        originalAssessmentComponentState = null;
+        renderAssessmentComponents();
+    }
+
+    function saveAssessmentComponentChanges(index) {
+        const componentElement = document.querySelector(`#grading-period-list > div:nth-child(${index + 1})`);
+        const newName = componentElement.querySelector('.grading-period-name-input').value.trim();
+        const newWeight = parseFloat(componentElement.querySelector('.grading-period-weight-input').value);
+
+        if (!newName || isNaN(newWeight) || newWeight < 0) { showToast('Invalid component name or weight.', 'error'); return; }
+        if (activeCourse.assessmentComponents.some((p, i) => i !== index && p.name.toLowerCase() === newName.toLowerCase())) { showToast('Assessment component name already exists.', 'error'); return; }
+        const totalWeight = activeCourse.assessmentComponents.reduce((sum, p, i) => sum + (i === index ? newWeight : p.weight), 0);
+        if (totalWeight > 100) { showToast('Total component weight exceeds 100%.', 'error'); return; }
+
+        // If component name changed, update student scores to reflect new name
+        if (newName !== originalAssessmentComponentState.name) {
+            students.forEach(s => {
+                if (s.scores[activeCourse.id] && s.scores[activeCourse.id][originalAssessmentComponentState.name]) {
+                    s.scores[activeCourse.id][newName] = s.scores[activeCourse.id][originalAssessmentComponentState.name];
+                    delete s.scores[activeCourse.id][originalAssessmentComponentState.name];
+                }
+            });
+        }
+
+        activeCourse.assessmentComponents[index].name = newName;
+        activeCourse.assessmentComponents[index].weight = newWeight;
+        editingAssessmentComponentIndex = -1;
+        originalAssessmentComponentState = null;
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        showToast('Assessment component changes saved!', 'success');
+        renderAssessmentComponents(); // Re-render to show updated name
+        renderAll(); // <--- Added: Re-render all tables after structural change
+    }
+
+    function showDeleteAssessmentComponentConfirmation(index) {
+        const componentName = activeCourse.assessmentComponents[index].name;
+        showConfirmationModal(
+            'Confirm Delete Assessment Component',
+            `Are you sure you want to delete the assessment component "${componentName}"? All categories and associated scores within this component will be removed. This action cannot be undone.`,
+            () => deleteAssessmentComponent(index)
+        );
+    }
+
+    function deleteAssessmentComponent(index) {
+        if (!activeCourse) return;
+        const componentIdToDelete = activeCourse.assessmentComponents[index].id;
+        const componentName = activeCourse.assessmentComponents[index].name;
+
+        // Remove scores associated with this component from all students
+        students.forEach(s => {
+            if (s.scores[activeCourse.id] && s.scores[activeCourse.id][componentName]) {
+                delete s.scores[activeCourse.id][componentName];
+            }
+        });
+
+        activeCourse.assessmentComponents.splice(index, 1);
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        showToast(`Assessment component "${componentName}" removed.`, 'success');
+
+        // If the deleted component was the currently selected one, clear selection
+        if (selectedAssessmentComponent && selectedAssessmentComponent.id === componentIdToDelete) {
+            selectedAssessmentComponent = null;
+            document.getElementById('select-grading-period').value = '';
+        }
+        renderAssessmentComponents();
+        updateCategoryManagementSectionState();
+        renderAll(); // <--- Added: Re-render all tables after structural change
+    }
+
+    function selectGradingPeriod() { // Function name from HTML remains, but it selects an "Assessment Component"
+        const selectElement = document.getElementById('select-grading-period');
+        const componentId = selectElement.value;
+        const statusDiv = document.getElementById('selected-grading-period-status');
+        const currentComponentNameSpan = document.getElementById('current-period-name');
+
+        localStorage.setItem('gradingSheetSelectedAssessmentComponentId', componentId);
+
+        if (componentId) {
+            selectedAssessmentComponent = activeCourse.assessmentComponents.find(p => p.id === componentId);
+            statusDiv.textContent = `Managing categories for: ${selectedAssessmentComponent.name}`;
+            statusDiv.className = 'p-3 rounded-md text-center font-medium bg-blue-900/50 text-blue-300';
+            currentComponentNameSpan.textContent = selectedAssessmentComponent.name;
+        } else {
+            selectedAssessmentComponent = null;
+            statusDiv.textContent = 'No Assessment Component selected.';
+            statusDiv.className = 'p-3 rounded-md text-center font-medium bg-yellow-900/50 text-yellow-300';
+            currentComponentNameSpan.textContent = 'Selected Assessment Component';
+        }
+        statusDiv.classList.remove('hidden');
+        updateCategoryManagementSectionState();
+        renderCategories(); // Re-render categories for the newly selected component
+        renderAll(); // <--- Added: Re-render all tables after structural change (selection change implies structural view change)
+    }
+
+    function updateCategoryManagementSectionState() {
+        const categoryManagementSection = document.getElementById('category-management-section');
+        const categoryManagementOverlay = document.getElementById('category-management-overlay');
+        if (selectedAssessmentComponent) {
+            categoryManagementSection.classList.remove('disabled-section');
+            categoryManagementOverlay.classList.add('hidden');
+        } else {
+            categoryManagementSection.classList.add('disabled-section');
+            categoryManagementOverlay.classList.remove('hidden');
+        }
+        updateTotalCategoryWeightDisplay(); // Update category weight display for selected component
+    }
+
+    // --- CATEGORY LOGIC (now nested under selectedAssessmentComponent) ---
+    function updateTotalCategoryWeightDisplay() {
+        const totalWeightSpan = document.getElementById('current-total-category-weight');
+        const warningDiv = document.getElementById('category-weight-warning');
+
+        // Added checks for DOM elements to prevent TypeError if they are not yet rendered
+        if (!totalWeightSpan || !warningDiv) {
+            return; // Exit if elements are not found
+        }
+
+        if (!selectedAssessmentComponent) {
+            totalWeightSpan.textContent = '0';
+            warningDiv.classList.add('hidden');
+            return;
+        }
+        const totalWeight = selectedAssessmentComponent.categories.reduce((sum, cat) => sum + Number(cat.weight), 0);
+        totalWeightSpan.textContent = totalWeight;
+        warningDiv.classList.toggle('hidden', totalWeight === 100 || selectedAssessmentComponent.categories.length === 0);
+    }
+
+    function renderCategories() {
+        const container = document.getElementById('category-settings');
+        if (!selectedAssessmentComponent) { container.innerHTML = ''; return; }
+
+        container.innerHTML = selectedAssessmentComponent.categories.map((cat, index) => {
+            const isEditing = editingCategoryIndex === index;
+            if (isEditing) {
+                return `
+                    <details class="p-3 rounded-md shadow-sm border border-indigo-500 card" open>
+                        <summary class="flex items-center gap-4 cursor-pointer font-medium text-lg">
+                            <input type="text" value="${cat.name}" class="category-name-input flex-grow p-2">
+                            <input type="number" value="${cat.weight}" class="category-weight-input w-20 p-2 text-center">
+                            <span class="text-slate-400">%</span>
+                            <button onclick="saveCategoryChanges(${index})" class="bg-green-600 text-white px-3 py-2 rounded-md text-sm">Save</button>
+                            <button onclick="cancelEditCategory()" class="bg-slate-400 text-white px-3 py-2 rounded-md text-sm">Cancel</button>
+                        </summary>
+                        <div class="ml-8 mt-4 border-l-2 pl-4 border-slate-800">
+                            <h4 class="text-md font-semibold mb-2">Sub-items:</h4>
+                            <div id="sub-items-${index}" class="space-y-2 mb-4">${renderSubItems(index)}</div>
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="new-sub-item-name-${index}" placeholder="Sub-item name" class="flex-grow p-2">
+                                <input type="number" id="new-sub-item-max-score-${index}" placeholder="Max Score" class="w-24 p-2">
+                                <button onclick="addSubItem(${index})" class="bg-blue-500 text-white px-3 py-2 rounded-md">Add</button>
+                            </div>
+                        </div>
+                    </details>`;
+            } else {
+                return `
+                    <details class="p-3 rounded-md shadow-sm border card">
+                        <summary class="flex items-center gap-4 cursor-pointer font-medium text-lg">
+                            <span class="flex-grow">${cat.name} (${cat.weight}%)</span>
+                            <button onclick="startEditCategory(${index})" class="bg-yellow-500 text-white px-3 py-2 rounded-md text-sm">Edit</button>
+                            <button onclick="showDeleteCategoryConfirmation(${index})" class="bg-red-500 text-white px-3 py-2 rounded-md text-sm">Delete</button>
+                        </summary>
+                        <div class="ml-8 mt-4 border-l-2 pl-4 border-slate-800">
+                            <h4 class="text-md font-semibold mb-2">Sub-items:</h4>
+                            <div id="sub-items-readonly-${index}" class="space-y-2 mb-4">${renderSubItems(index)}</div>
+                        </div>
+                    </details>`;
+            }
+        }).join('');
+        updateTotalCategoryWeightDisplay(); // Update total weight display after rendering
+    }
+
+    function renderSubItems(catIndex) {
+        const cat = selectedAssessmentComponent.categories[catIndex];
+        const isEditing = editingCategoryIndex === catIndex;
+        if (!cat.subItems || cat.subItems.length === 0) return '<p class="text-slate-400 text-sm">No sub-items for this category.</p>';
+
+        return cat.subItems.map((sub, subIndex) => {
+            if (isEditing) {
+                return `<div class="flex items-center gap-2 bg-slate-800 p-2 rounded-md">
+                            <input type="text" value="${sub.name}" class="sub-item-name-input flex-grow p-1 text-sm">
+                            <input type="number" value="${sub.maxScore}" class="sub-item-max-score-input w-20 p-1 text-center text-sm">
+                            <button onclick="removeSubItem(${catIndex}, ${subIndex})" class="bg-red-400 text-white px-2 py-1 rounded-md text-sm">Del</button>
+                        </div>`;
+            } else {
+                return `<div class="flex items-center gap-2 bg-slate-800 p-2 rounded-md">
+                            <span class="flex-grow text-sm">${sub.name}</span>
+                            <span class="text-slate-400 text-sm">${formatNumber(sub.maxScore)} pts</span>
+                        </div>`;
+            }
+        }).join('');
+    }
+
+    function addCategory() {
+        if (!selectedAssessmentComponent) return;
+        const nameInput = document.getElementById('new-category-name');
+        const weightInput = document.getElementById('new-category-weight');
+        const name = nameInput.value.trim();
+        const weight = parseFloat(weightInput.value);
+
+        if (!name || isNaN(weight) || weight <= 0) { showToast('Please enter a valid name and weight.', 'error'); return; }
+        if (selectedAssessmentComponent.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) { showToast('Category name already exists in this component.', 'error'); return; }
+        const totalWeight = selectedAssessmentComponent.categories.reduce((sum, c) => sum + c.weight, 0);
+        if (totalWeight + weight > 100) { showToast('Total category weight for this component cannot exceed 100%.', 'error'); return; }
+
+        selectedAssessmentComponent.categories.push({ id: crypto.randomUUID(), name, weight, subItems: [] });
+        nameInput.value = '';
+        weightInput.value = '';
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        renderCategories(); // Re-render the list
+        renderAll(); // <--- Added: Re-render all tables after structural change
+    }
+
+    function handleCategoryCsvImport(event) {
+        if (!selectedAssessmentComponent) {
+            showToast("Please select an Assessment Component first to import categories.", "error");
+            return;
+        }
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const lines = e.target.result.split(/\r\n|\n/).filter(line => line.trim() !== '').slice(1); // Filter empty lines and skip header
+            let added = 0, updated = 0, skipped = 0;
+            lines.forEach(line => {
+                const [categoryName, weight] = line.split(',').map(f => f.trim());
+                const parsedWeight = parseFloat(weight);
+
+                if (!categoryName || isNaN(parsedWeight) || parsedWeight <= 0) {
+                    skipped++;
+                    return; // Skip invalid rows
+                }
+
+                const existingIndex = selectedAssessmentComponent.categories.findIndex(c => c.name.toLowerCase() === categoryName.toLowerCase());
+                const totalWeight = selectedAssessmentComponent.categories.reduce((sum, c) => sum + c.weight, 0);
+
+                if (existingIndex !== -1) {
+                    // Update existing category
+                    const currentCategoryWeight = selectedAssessmentComponent.categories[existingIndex].weight;
+                    if ((totalWeight - currentCategoryWeight + parsedWeight) > 100) {
+                        showToast(`Cannot update "${categoryName}": Total weight for this component would exceed 100%.`, 'error', 5000);
+                        skipped++;
+                        return;
+                    }
+                    selectedAssessmentComponent.categories[existingIndex].weight = parsedWeight;
+                    updated++;
+                } else if (totalWeight + parsedWeight > 100) {
+                    showToast(`Cannot add "${categoryName}": Total weight for this component would exceed 100%.`, 'error', 5000);
+                    skipped++;
+                } else {
+                    // Add new category
+                    selectedAssessmentComponent.categories.push({ id: crypto.randomUUID(), name: categoryName, weight: parsedWeight, subItems: [] });
+                    added++;
+                }
+            });
+            socket.emit('updateData', { activeCourse: activeCourse, students: students });
+            renderCategories(); // Re-render the categories after import
+            showToast(`Category import complete! Added: ${added}, Updated: ${updated}, Skipped: ${skipped}.`, 'success');
+            renderAll(); // <--- Added: Re-render all tables after structural change
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+
+    // Function to show confirmation for deleting a category
+    function showDeleteCategoryConfirmation(index) {
+        const categoryName = selectedAssessmentComponent.categories[index].name;
+        showConfirmationModal(
+            'Confirm Delete Category',
+            `Are you sure you want to delete the category "${categoryName}"? All associated scores for this category will be removed from all students. This action cannot be undone.`,
+            () => removeCategory(index) // Callback function if confirmed
+        );
+    }
+
+    function removeCategory(index) {
+        if (!selectedAssessmentComponent) return;
+        const catName = selectedAssessmentComponent.categories[index].name;
+        selectedAssessmentComponent.categories.splice(index, 1); // Remove category
+        // Remove scores associated with this category from all students
+        students.forEach(s => {
+            if (s.scores[activeCourse.id] && s.scores[activeCourse.id][selectedAssessmentComponent.name] && s.scores[activeCourse.id][selectedAssessmentComponent.name][catName]) {
+                delete s.scores[activeCourse.id][selectedAssessmentComponent.name][catName];
+            }
+        });
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        renderCategories(); // Re-render the categories after removal
+        showToast(`Category "${catName}" removed.`, 'success');
+        renderAll(); // <--- Added: Re-render all tables after structural change
+    }
+
+    function startEditCategory(index) {
+        if (editingCategoryIndex !== -1) { showToast('Please save or cancel the current edit first.', 'error'); return; }
+        editingCategoryIndex = index;
+        originalCategoryState = JSON.parse(JSON.stringify(selectedAssessmentComponent.categories[index]));
+        renderCategories(); // Re-render to show editing UI
+    }
+
+    function cancelEditCategory() {
+        if (originalCategoryState) {
+            selectedAssessmentComponent.categories[editingCategoryIndex] = originalCategoryState;
+        }
+        editingCategoryIndex = -1;
+        originalCategoryState = null;
+        renderCategories(); // Re-render to show normal UI
+    }
+
+    function saveCategoryChanges(index) {
+        const catElement = document.querySelector(`#category-settings details:nth-child(${index + 1})`);
+        const newName = catElement.querySelector('.category-name-input').value.trim();
+        const newWeight = parseFloat(catElement.querySelector('.category-weight-input').value);
+
+        if (!newName || isNaN(newWeight) || newWeight < 0) { showToast('Invalid name or weight.', 'error'); return; }
+        // Check for duplicate category names (excluding the current category being edited)
+        if (selectedAssessmentComponent.categories.some((c, i) => i !== index && c.name.toLowerCase() === newName.toLowerCase())) { showToast('Category name already exists in this component.', 'error'); return; }
+        // Check total weight limit
+        const totalWeight = selectedAssessmentComponent.categories.reduce((sum, c, i) => sum + (i === index ? newWeight : c.weight), 0);
+        if (totalWeight > 100) { showToast('Total category weight for this component cannot exceed 100%.', 'error'); return; }
+
+        const newSubItems = [];
+        const subItemElements = catElement.querySelectorAll(`#sub-items-${index} > div`);
+        subItemElements.forEach(el => {
+            const subName = el.querySelector('.sub-item-name-input')?.value.trim();
+            const maxScore = parseFloat(el.querySelector('.sub-item-max-score-input')?.value);
+            // Only push valid sub-items
+            if (subName && !isNaN(maxScore) && maxScore >= 0) { // Max score can be 0 (e.g., participation)
+                // Re-use ID if it exists (for existing sub-items), otherwise generate new
+                // Find existing sub-item by name and if found, use its ID.
+                const existingSubItem = originalCategoryState.subItems?.find(sub => sub.name.toLowerCase() === subName.toLowerCase());
+                newSubItems.push({ id: existingSubItem ? existingSubItem.id : crypto.randomUUID(), name: subName, maxScore });
+            } else if (subName && (isNaN(maxScore) || maxScore < 0)) {
+                showToast(`Invalid max score for sub-item "${subName}". Must be a number >= 0.`, 'error', 5000);
+            }
+        });
+
+        // If category name changed, update student scores to reflect new name
+        if (newName !== originalCategoryState.name) {
+            students.forEach(s => {
+                if (s.scores[activeCourse.id] && s.scores[activeCourse.id][selectedAssessmentComponent.name] && s.scores[activeCourse.id][selectedAssessmentComponent.name][originalCategoryState.name]) {
+                    s.scores[activeCourse.id][selectedAssessmentComponent.name][newName] = s.scores[activeCourse.id][selectedAssessmentComponent.name][originalCategoryState.name];
+                    delete s.scores[activeCourse.id][selectedAssessmentComponent.name][originalCategoryState.name];
+                }
+            });
+        }
+
+        selectedAssessmentComponent.categories[index] = { ...originalCategoryState, name: newName, weight: newWeight, subItems: newSubItems };
+        editingCategoryIndex = -1; // Exit editing mode
+        originalCategoryState = null;
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        renderCategories(); // Re-render to show updated details
+        showToast('Category changes saved!', 'success');
+        renderAll(); // <--- Added: Re-render all tables after structural change
+    }
+
+    function addSubItem(catIndex) {
+        const name = document.getElementById(`new-sub-item-name-${catIndex}`).value.trim();
+        const maxScore = parseFloat(document.getElementById(`new-sub-item-max-score-${catIndex}`).value);
+        if (!name || isNaN(maxScore) || maxScore < 0) { showToast('Invalid sub-item name or max score (must be >= 0).', 'error'); return; }
+
+        const cat = selectedAssessmentComponent.categories[catIndex];
+        if (!cat.subItems) cat.subItems = [];
+        // Check for duplicate sub-item name within the category
+        if (cat.subItems.some(sub => sub.name.toLowerCase() === name.toLowerCase())) {
+            showToast('Sub-item name already exists in this category.', 'error');
+            return;
+        }
+
+        cat.subItems.push({ id: crypto.randomUUID(), name, maxScore });
+
+        // Update the rendered sub-items dynamically for the current category in edit mode
+        document.getElementById(`sub-items-${catIndex}`).innerHTML = renderSubItems(catIndex);
+        document.getElementById(`new-sub-item-name-${catIndex}`).value = ''; // Clear input fields
+        document.getElementById(`new-sub-item-max-score-${catIndex}`).value = '';
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        renderAll(); // <--- Added: Re-render all tables after structural change
+    }
+
+    function removeSubItem(catIndex, subIndex) {
+        selectedAssessmentComponent.categories[catIndex].subItems.splice(subIndex, 1);
+        // Update the rendered sub-items dynamically for the current category in edit mode
+        document.getElementById(`sub-items-${catIndex}`).innerHTML = renderSubItems(catIndex);
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        renderAll(); // <--- Added: Re-render all tables after structural change
+    }
+
+
+    // --- STUDENT LOGIC ---
+    function checkAddStudentFormValidity() {
+        const name = document.getElementById('new-student-real-name').value.trim();
+        const id = document.getElementById('new-student-id').value.trim();
+        const roll = document.getElementById('new-student-roll-number').value.trim();
+        document.getElementById('add-student-button').disabled = !name || !id || !roll;
+    }
+
+    function addStudent() {
+        if (!activeCourse) return;
+        const realName = document.getElementById('new-student-real-name').value.trim();
+        const nickname = document.getElementById('new-student-nickname').value.trim();
+        const studentId = document.getElementById('new-student-id').value.trim();
+        const rollNumber = document.getElementById('new-student-roll-number').value.trim();
+
+        // Check for duplicate student ID globally
+        if (students.some(s => s.studentId === studentId)) { showToast('Student ID already exists in the system. Please use a unique ID.', 'error'); return; }
+        // Check for duplicate roll number within the same class (grade and room)
+        const studentsInCurrentClass = students.filter(s => s.gradeLevel === activeCourse.gradeLevel && s.room === activeCourse.room);
+        if (studentsInCurrentClass.some(s => s.rollNumber === rollNumber)) { showToast('Roll Number already exists for another student in this class.', 'error'); return; }
+
+        students.push({ realName, nickname, studentId, rollNumber, gradeLevel: activeCourse.gradeLevel, room: activeCourse.room, scores: {} });
+
+        // Clear form fields
+        ['new-student-real-name', 'new-student-nickname', 'new-student-id', 'new-student-roll-number'].forEach(id => document.getElementById(id).value = '');
+        checkAddStudentFormValidity(); // Re-check validity after clearing
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        renderStudents(); // Re-render the student list
+        showToast(`${realName} has been added.`, 'success');
+        renderAll(); // <--- Added: Re-render all tables after structural change (adding student)
+    }
+
+    // Function to show confirmation for deleting a student
+    function showDeleteStudentConfirmation(studentId) {
+        const student = students.find(s => s.studentId === studentId);
+        if (!student) return;
+        showConfirmationModal(
+            'Confirm Delete Student',
+            `Are you sure you want to delete student "${student.realName}" (ID: ${student.studentId})? All their scores will be removed. This action cannot be undone.`,
+            () => removeStudent(studentId) // Callback function if confirmed
+        );
+    }
+
+    function removeStudent(studentId) {
+        // Filter out the student
+        students = students.filter(s => s.studentId !== studentId);
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        renderStudents(); // Re-render the student list
+        showToast('Student removed.', 'success');
+        renderAll(); // <--- Added: Re-render all tables after structural change (removing student)
+    }
+
+    function startEditStudent(studentId) {
+        if (editingStudentId) {
+            showToast('Please save or cancel the current student edit first.', 'error');
+            return;
+        }
+        editingStudentId = studentId;
+        originalStudentState = JSON.parse(JSON.stringify(students.find(s => s.studentId === studentId))); // Deep copy
+        renderStudents(); // Re-render to show editing UI
+    }
+
+    function cancelEditStudent() {
+        const studentIndex = students.findIndex(s => s.studentId === editingStudentId);
+        if (studentIndex > -1) {
+            students[studentIndex] = originalStudentState; // Restore original data
+        }
+        editingStudentId = null;
+        originalStudentState = null;
+        renderStudents(); // Re-render to show normal UI
+    }
+
+    function saveStudentChanges(studentId) {
+        const studentIndex = students.findIndex(s => s.studentId === studentId);
+        if (studentIndex === -1) return;
+
+        const studentRow = document.getElementById(`student-${studentId}`);
+        const newRealName = studentRow.querySelector('.edit-student-real-name').value.trim();
+        const newNickname = studentRow.querySelector('.edit-student-nickname').value.trim();
+        const newRollNumber = studentRow.querySelector('.edit-student-roll-number').value.trim();
+
+        if (!newRealName || !newRollNumber) {
+            showToast('Student name and roll number cannot be empty.', 'error');
+            return;
+        }
+
+        // Check for duplicate roll number (excluding the student being edited, and ensuring it's in the *current* class)
+        const studentsInCurrentClass = students.filter(s => s.gradeLevel === activeCourse.gradeLevel && s.room === activeCourse.room);
+        if (studentsInCurrentClass.some(s => s.studentId !== studentId && s.rollNumber === newRollNumber)) {
+            showToast('Roll Number already exists for another student in this class.', 'error');
+            return;
+        }
+
+        students[studentIndex].realName = newRealName;
+        students[studentIndex].nickname = newNickname;
+        students[studentIndex].rollNumber = newRollNumber;
+
+        editingStudentId = null; // Exit editing mode
+        originalStudentState = null;
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+        renderStudents(); // Re-render to show updated details
+        showToast('Student details updated!', 'success');
+        renderAll(); // <--- Added: Re-render all tables after structural change (editing student details)
+    }
+
+    function renderStudents() {
+        const container = document.getElementById('student-list');
+        if (!activeCourse) { container.innerHTML = ''; return; }
+        // Filter students for the active course's grade level and room
+        const studentsInClass = students.filter(s => s.gradeLevel === activeCourse.gradeLevel && s.room === activeCourse.room);
+
+        if (studentsInClass.length === 0) {
+            container.innerHTML = '<p class="text-slate-400 text-center p-4">No students in this class yet.</p>';
+            return;
+        }
+
+        // Sort students by roll number
+        container.innerHTML = studentsInClass.sort((a, b) => {
+            const rollA = parseInt(a.rollNumber, 10);
+            const rollB = parseInt(b.rollNumber, 10);
+            return rollA - rollB;
+        }).map(s => {
+            if (editingStudentId === s.studentId) {
+                // EDITING VIEW
+                return `
+                    <div id="student-${s.studentId}" class="p-2 rounded-md border-2 border-indigo-500 card space-y-2">
+                        <div class="grid grid-cols-2 gap-3">
+                            <input type="text" value="${s.realName}" class="edit-student-real-name p-1 col-span-2" placeholder="Full Name">
+                            <input type="text" value="${s.nickname || ''}" class="edit-student-nickname p-1 col-span-2" placeholder="Nickname">
+                            <input type="text" value="${s.studentId}" class="edit-student-id p-1" placeholder="Student ID" disabled> <input type="number" value="${s.rollNumber}" class="edit-student-roll-number p-1" placeholder="Roll No.">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="saveStudentChanges('${s.studentId}')" class="w-full bg-green-600 text-white px-3 py-1 rounded-md text-sm">Save</button>
+                            <button onclick="cancelEditStudent()" class="w-full bg-slate-500 text-white px-3 py-1 rounded-md text-sm">Cancel</button>
+                        </div>
+                    </div>`;
+            } else {
+                // NORMAL VIEW
+                return `
+                    <div id="student-${s.studentId}" class="flex items-center gap-2 p-2 rounded-md border card hover:bg-slate-800">
+                        <div class="flex-grow">
+                            <p class="font-medium">${s.rollNumber}. ${s.realName} <span class="text-slate-400 text-sm">(${s.nickname || '-'})</span></p>
+                            <p class="text-sm text-slate-500">ID: ${s.studentId} | Grade: ${s.gradeLevel}/${s.room}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="startEditStudent('${s.studentId}')" class="bg-yellow-600 text-white px-3 py-1 rounded-md text-sm">Edit</button>
+                            <button onclick="showDeleteStudentConfirmation('${s.studentId}')" class="bg-red-600 text-white px-3 py-1 rounded-md text-sm">Delete</button>
+                        </div>
+                    </div>`;
+            }
+        }).join('');
+    }
+
+    function handleCsvImport(event) {
+        if (!activeCourse) {
+            showToast("Please select a course first to import students.", "error");
+            return;
+        }
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const lines = e.target.result.split(/\r\n|\n/).filter(line => line.trim() !== '').slice(1); // Filter empty lines and skip header
+            let added = 0, updated = 0, skipped = 0;
+            lines.forEach(line => {
+                const [studentId, realName, nickname, rollNumber] = line.split(',').map(f => f.trim());
+                if (!studentId || !realName || !rollNumber) {
+                    skipped++;
+                    console.warn(`Skipping invalid student CSV row: ${line}`);
+                    return; // Skip invalid rows
+                }
+
+                const existingIndex = students.findIndex(s => s.studentId === studentId);
+                const studentsInCurrentClass = students.filter(s => s.gradeLevel === activeCourse.gradeLevel && s.room === activeCourse.room);
+                const rollNumberExistsInCurrentClass = studentsInCurrentClass.some(s => s.studentId !== studentId && s.rollNumber === rollNumber);
+                // check if the studentId already exists but with a different roll number AND in the same class
+                const studentIdExistsWithDifferentRollInSameClass = students.some(s => s.studentId === studentId && s.rollNumber !== rollNumber && s.gradeLevel === activeCourse.gradeLevel && s.room === activeCourse.room);
+
+
+                if (existingIndex !== -1) {
+                    // Update existing student
+                    if (rollNumberExistsInCurrentClass && students[existingIndex].rollNumber !== rollNumber) {
+                         showToast(`Student with Roll Number ${rollNumber} already exists in this class, skipping update for ${realName} (ID: ${studentId}).`, 'error', 5000);
+                         skipped++;
+                         return;
+                    }
+                    const existingStudent = students[existingIndex];
+                    Object.assign(existingStudent, { realName, nickname, rollNumber, gradeLevel: activeCourse.gradeLevel, room: activeCourse.room });
+                    updated++;
+                } else if (rollNumberExistsInCurrentClass || studentIdExistsWithDifferentRollInSameClass) {
+                    showToast(`Conflict: Student with Roll Number ${rollNumber} or Student ID ${studentId} already exists in this class with a different entry. Skipping import for ${realName}.`, 'error', 7000);
+                    skipped++;
+                }
+                else {
+                    // Add new student
+                    students.push({ studentId, realName, nickname, rollNumber, gradeLevel: activeCourse.gradeLevel, room: activeCourse.room, scores: {} });
+                    added++;
+                }
+            });
+            socket.emit('updateData', { activeCourse: activeCourse, students: students });
+            renderStudents(); // Re-render the student list
+            showToast(`Import complete! Added: ${added}, Updated: ${updated}, Skipped: ${skipped}.`, 'success');
+            renderAll(); // <--- Added: Re-render all tables after structural change (importing students)
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // Clear file input
+    }
+
+    // --- NEW: EXPORT TO CSV ---
+    // Exports student scores to a CSV file
+    function exportScoresToCsv() {
+        if (!activeCourse || students.filter(s => s.gradeLevel === activeCourse.gradeLevel && s.room === activeCourse.room).length === 0) {
+            showToast("No student data to export for this course.", "error");
+            return;
+        }
+
+        const studentsInClass = students.filter(s => s.gradeLevel === activeCourse.gradeLevel && s.room === activeCourse.room)
+                                         .sort((a, b) => parseInt(a.rollNumber, 10) - parseInt(b.rollNumber, 10)); // Sort numerically
+
+        let csvContent = "data:text/csv;charset=utf-8,";
+
+        // Define CSV headers
+        const headers = ["Roll Number", "Student ID", "Full Name", "Nickname"];
+        // Iterate through assessment components and then categories for headers
+        activeCourse.assessmentComponents.forEach(component => {
+            component.categories.forEach(cat => {
+                if (cat.subItems && cat.subItems.length > 0) {
+                    cat.subItems.forEach(sub => headers.push(`"${component.name.replace(/"/g, '""')} - ${cat.name.replace(/"/g, '""')} - ${sub.name.replace(/"/g, '""')}"`));
+                } else {
+                    headers.push(`"${cat.name.replace(/"/g, '""')}"`); // Use category name directly if no sub-items
+                }
+            });
+        });
+        headers.push("Final Score (%)", "Final Grade");
+        csvContent += headers.join(",") + "\r\n";
+
+        // Add student data rows
+        studentsInClass.forEach(student => {
+            const row = [
+                student.rollNumber,
+                student.studentId,
+                `"${student.realName.replace(/"/g, '""')}"`, // Quote names and escape existing quotes
+                `"${(student.nickname || '').replace(/"/g, '""')}"`
+            ];
+            activeCourse.assessmentComponents.forEach(component => {
+                component.categories.forEach(cat => {
+                    if (cat.subItems && cat.subItems.length > 0) {
+                        cat.subItems.forEach(sub => {
+                            const score = student.scores[activeCourse.id]?.[component.name]?.[cat.name]?.[sub.id] || '0';
+                            row.push(score);
+                        });
+                    } else {
+                        const score = student.scores[activeCourse.id]?.[component.name]?.[cat.name] || '0';
+                        row.push(score);
+                    }
+                });
+            });
+            const { finalScore, grade } = calculateFinalScoreAndGrade(student, activeCourse);
+            row.push(finalScore, `"${grade}"`);
+            csvContent += row.join(",") + "\r\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${activeCourse.subject}_${activeCourse.gradeLevel}_${activeCourse.room}_${activeCourse.academicYear}_${activeCourse.semester}_scores.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast("Scores exported successfully!", "success");
+    }
+
+    // --- SCORE CALCULATION & RENDERING ---
+    // Calculates current and max scores for a given category for a student
+    // Now accepts componentName to correctly access nested scores
+    function getCategoryScores(student, componentName, category, courseToUse) {
+        let current = 0;
+        let max = 0;
+        // Ensure courseToUse, student scores, and course ID are valid
+        if (!courseToUse || !student.scores || !student.scores[courseToUse.id] || !student.scores[courseToUse.id][componentName]) {
+            console.log(`getCategoryScores: Missing data for student ${student.studentId}, component ${componentName} or course ${courseToUse?.id}. Returning 0 scores.`);
+            return { current: 0, max: 0 };
+        }
+
+        const catScores = student.scores[courseToUse.id][componentName][category.name] || {};
+        // console.log(`getCategoryScores: student=${student.realName}, component=${componentName}, category=${category.name}, catScores=`, catScores);
+
+        if (category.subItems && category.subItems.length > 0) {
+            category.subItems.forEach(sub => {
+                max += Number(sub.maxScore);
+                const subScoreValue = parseFloat(catScores[sub.id] || 0); // Get score for sub-item
+                current += subScoreValue;
+                // console.log(`   Sub-item: ${sub.name} (ID: ${sub.id}), maxScore=${sub.maxScore}, scoreFromData=${catScores[sub.id]}, parsedScore=${subScoreValue}, currentTotal=${current}, maxTotal=${max}`);
+            });
+        } else {
+            max = 100; // Default for simple categories within a component
+            current = parseFloat(catScores || 0);
+            // console.log(`   Simple category: current=${current}, max=${max}`);
+        }
+        // console.log(`getCategoryScores: Final for ${componentName} - ${category.name}: current=${current}, max=${max}`);
+        return { current, max };
+    }
+
+    // Calculates the final score and grade for a student in a specific course
+    function calculateFinalScoreAndGrade(student, course) {
+        let totalWeightedCourseScore = 0;
+        // Return default if course or student scores are not available or no components defined
+        if (!course || !student.scores[course.id] || !course.assessmentComponents || course.assessmentComponents.length === 0) return { finalScore: '0.00', grade: 'N/A' };
+
+        course.assessmentComponents.forEach(component => {
+            let totalComponentScore = 0;
+            let totalComponentMaxWeight = 0;
+
+            // Ensure component.categories is an array before iterating
+            if (!Array.isArray(component.categories)) {
+                console.warn(`Assessment component "${component.name}" has no categories array. Skipping component in score calculation.`);
+                return; // Skip this component if categories are missing
+            }
+
+            component.categories.forEach(cat => {
+                // Pass component.name to getCategoryScores
+                const { current, max } = getCategoryScores(student, component.name, cat, activeCourse); // Changed course to activeCourse
+                if (max > 0) {
+                    // Calculate percentage for this category within its component
+                    const categoryPercentage = (current / max);
+                    // Add weighted category score to component total
+                    totalComponentScore += categoryPercentage * cat.weight;
+                }
+                totalComponentMaxWeight += cat.weight; // Sum up category weights for this component
+            });
+
+            // If component has categories and their total weight is > 0, calculate component's weighted score
+            if (totalComponentMaxWeight > 0) {
+                // Normalize component score to 100% of its own categories, then apply component's weight
+                const normalizedComponentScore = (totalComponentScore / totalComponentMaxWeight) * 100;
+                totalWeightedCourseScore += (normalizedComponentScore / 100) * component.weight;
+            }
+        });
+
+        const score = Math.min(totalWeightedCourseScore, 100); // Cap score at 100%
+        let grade = 'N/A';
+        // Assign grade based on score thresholds
+        if (isNaN(score)) grade = 'N/A';
+        else if (score >= 90) grade = 'A+';
+        else if (score >= 85) grade = 'A';
+        else if (score >= 80) grade = 'A-';
+        else if (score >= 75) grade = 'B+';
+        else if (score >= 70) grade = 'B';
+        else if (score >= 65) grade = 'B-';
+        else if (score >= 60) grade = 'C+';
+        else if (score >= 55) grade = 'C';
+        else if (score >= 50) grade = 'C-';
+        else if (score >= 45) grade = 'D';
+        else grade = 'F';
+
+        return { finalScore: score.toFixed(2), grade };
+    }
+
+    // Updates a student's score for a specific category or sub-item
+    function updateSubScore(studentId, componentName, catName, subId, value) {
+        const student = students.find(s => s.studentId === studentId);
+        if (!student || !activeCourse) {
+            return;
+        }
+
+        const score = parseFloat(value);
+        const component = activeCourse.assessmentComponents.find(p => p.name === componentName);
+        if (!component) {
+            console.error(`updateSubScore: Component "${componentName}" not found.`);
+            return;
+        }
+        const category = component.categories.find(c => c.name === catName);
+        if (!category) {
+            console.error(`updateSubScore: Category "${catName}" not found within component "${componentName}".`);
+            return;
+        }
+
+        let maxScore = 100; // Default max score for simple categories
+        if (subId) {
+            const subItem = category.subItems.find(s => s.id === subId);
+            if (subItem) maxScore = subItem.maxScore;
+            else {
+                console.error(`updateSubScore: Sub-item with ID "${subId}" not found in category "${catName}".`);
+                return;
+            }
+        }
+
+        // Input validation: allow empty string for clearing, but otherwise must be valid number
+        if (value.trim() === '') {
+            // If input is cleared, set score to 0 or null depending on preference. 0 is safer for calculations.
+            if (subId) {
+                if (!student.scores[activeCourse.id]) student.scores[activeCourse.id] = {};
+                if (!student.scores[activeCourse.id][componentName]) student.scores[activeCourse.id][componentName] = {};
+                if (!student.scores[activeCourse.id][componentName][catName]) student.scores[activeCourse.id][componentName][catName] = {};
+                student.scores[activeCourse.id][componentName][catName][subId] = 0;
+            } else {
+                if (!student.scores[activeCourse.id]) student.scores[activeCourse.id] = {};
+                if (!student.scores[activeCourse.id][componentName]) student.scores[activeCourse.id][componentName] = {};
+                student.scores[activeCourse.id][componentName][catName] = 0;
+            }
+        } else if (isNaN(score) || score < 0 || score > maxScore) {
+            showToast(`Score must be between 0 and ${formatNumber(maxScore)}.`, 'error');
+            // Revert the input field to its last valid saved value or 0 if no valid value
+            const currentInput = document.querySelector(`input[onchange*='${studentId}'][onchange*='${componentName}'][onchange*='${catName}'][onchange*='${subId || 'null'}']`);
+            if (currentInput) {
+                if (subId) {
+                    currentInput.value = student.scores[activeCourse.id]?.[componentName]?.[catName]?.[subId] || '';
+                } else {
+                    currentInput.value = student.scores[activeCourse.id]?.[componentName]?.[cat.name] || '';
+                }
+            }
+            return;
+        } else {
+            // Valid score, update it
+            if (!student.scores[activeCourse.id]) student.scores[activeCourse.id] = {};
+            if (!student.scores[activeCourse.id][componentName]) student.scores[activeCourse.id][componentName] = {};
+            if (!student.scores[activeCourse.id][componentName][catName]) student.scores[activeCourse.id][componentName][catName] = {};
+
+            if (subId) {
+                student.scores[activeCourse.id][componentName][catName][subId] = score;
+            } else {
+                student.scores[activeCourse.id][componentName][catName] = score;
+            }
+        }
+
+        socket.emit('updateData', { activeCourse: activeCourse, students: students });
+
+        // --- Real-time update of Category Total, Final Score, and Final Grade ---
+        // Find the student row by iterating through all rows
+        const scoreTableBody = document.querySelector('#score-input-table tbody');
+        let studentRow = null;
+        if (scoreTableBody) {
+            for (let i = 0; i < scoreTableBody.children.length; i++) {
+                const row = scoreTableBody.children[i];
+                // Assuming studentId is in a div within the first td of the row
+                const studentIdDiv = row.querySelector('td:first-child div.text-xs');
+                if (studentIdDiv && studentIdDiv.textContent.includes(`ID: ${studentId}`)) {
+                    studentRow = row;
+                    break;
+                }
+            }
+        }
+
+        if (studentRow) {
+            let currentCategoryColIndex = 0;
+            let foundCategory = false;
+
+            // Find the correct category total cell for the updated category
+            activeCourse.assessmentComponents.forEach(comp => {
+                comp.categories.forEach(cat => {
+                    const colspan = (cat.subItems && cat.subItems.length > 0) ? cat.subItems.length + 1 : 2;
+                    if (comp.name === componentName && cat.name === catName) {
+                        // This is the category we just updated
+                        const categoryTotalCell = studentRow.children[1 + currentCategoryColIndex + (cat.subItems?.length || 0)]; // +1 for student column, + subItems.length for sub-item columns
+                        if (categoryTotalCell) {
+                            const { current, max } = getCategoryScores(student, componentName, category, activeCourse);
+                            // Round the percentage to a whole number for display
+                            const percentage = max > 0 ? Math.round((current / max) * 100) : 0;
+                            categoryTotalCell.innerHTML = `${formatNumber(current)}<br>(${percentage}%)`; // Use Math.round for percentage
+                        }
+                        foundCategory = true;
+                    }
+                    currentCategoryColIndex += colspan;
+                });
+                if (foundCategory) return; // Exit outer loop once category is found
+            });
+
+
+            // Update final score and grade cells
+            const { finalScore, grade } = calculateFinalScoreAndGrade(student, activeCourse);
+            // Assuming final score and grade are the last two columns
+            const finalScoreCell = studentRow.querySelector('.final-score-cell');
+            const finalGradeCell = studentRow.querySelector('.final-grade-cell');
+
+            if (finalScoreCell && finalGradeCell) {
+                finalScoreCell.textContent = formatNumber(finalScore);
+                finalGradeCell.textContent = grade;
+            }
+        }
+    }
+
+    // Renders the score input table
+    function renderScoresTable() {
+        const container = document.getElementById('score-input-table');
+        const info = document.getElementById('score-entry-info');
+        if (!activeCourse || !activeCourse.assessmentComponents || activeCourse.assessmentComponents.length === 0) {
+            info.textContent = 'Please add Assessment Components and Categories to begin.';
+            info.classList.remove('hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        const studentsInClass = students.filter(s => s.gradeLevel === activeCourse.gradeLevel && s.room === activeCourse.room);
+
+        if (studentsInClass.length === 0) {
+            info.textContent = 'Please add students to begin.';
+            info.classList.remove('hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        // Check if there are any categories defined within any component
+        const hasCategories = activeCourse.assessmentComponents.some(component => component.categories && component.categories.length > 0);
+        if (!hasCategories) {
+            info.textContent = 'Please add Categories within your Assessment Components to begin.';
+            info.classList.remove('hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        info.classList.add('hidden');
+
+        let tableHTML = `<table class="min-w-full border-collapse"><thead><tr class="sticky-header">`;
+        tableHTML += `<th rowspan="3" class="sticky-col p-2 border border-slate-600 text-left">Student</th>`;
+
+        activeCourse.assessmentComponents.forEach((component, componentIndex) => {
+            const totalCategoriesInComponent = component.categories.reduce((sum, cat) => sum + (cat.subItems && cat.subItems.length > 0 ? cat.subItems.length + 1 : 2), 0);
+            if (totalCategoriesInComponent > 0) {
+                tableHTML += `<th colspan="${totalCategoriesInComponent}" class="p-2 border border-slate-600 text-center" style="background-color: ${tableHeaderColors[componentIndex % tableHeaderColors.length]}">${component.name} (${component.weight}%)</th>`;
+            }
+        });
+        tableHTML += `<th rowspan="3" class="p-2 border border-slate-600">Final Score</th><th rowspan="3" class="p-2 border border-slate-600">Final Grade</th></tr>`;
+
+        tableHTML += `<tr class="sticky-header">`;
+        activeCourse.assessmentComponents.forEach((component, componentIndex) => {
+            component.categories.forEach((cat, catIndex) => {
+                const colspan = (cat.subItems && cat.subItems.length > 0) ? cat.subItems.length + 1 : 2;
+                tableHTML += `<th colspan="${colspan}" class="p-2 border border-slate-600 text-center" style="background-color: ${tableHeaderColors[componentIndex % tableHeaderColors.length]}">${cat.name} (${cat.weight}%)</th>`;
+            });
+        });
+        tableHTML += `</tr>`;
+
+        tableHTML += `<tr class="sticky-header">`;
+        activeCourse.assessmentComponents.forEach((component, componentIndex) => {
+            component.categories.forEach((cat, catIndex) => {
+                if (cat.subItems && cat.subItems.length > 0) {
+                    cat.subItems.forEach(sub => tableHTML += `<th class="p-2 border border-slate-600 text-center font-normal" style="background-color: ${tableHeaderColors[componentIndex % tableHeaderColors.length]}">${sub.name} (${formatNumber(sub.maxScore)})</th>`);
+                    tableHTML += `<th class="p-2 border border-slate-600 text-center font-medium category-total-header" style="background-color: ${tableHeaderColors[componentIndex % tableHeaderColors.length]}">Cat. Total</th>`;
+                } else {
+                    tableHTML += `<th class="p-2 border border-slate-600 text-center font-normal" style="background-color: ${tableHeaderColors[componentIndex % tableHeaderColors.length]}">Score (${formatNumber(100)})</th>`;
+                    tableHTML += `<th class="p-2 border border-slate-600 text-center font-medium category-total-header" style="background-color: ${tableHeaderColors[componentIndex % tableHeaderColors.length]}">Cat. Total</th>`;
+                }
+            });
+        });
+        tableHTML += `</tr></thead><tbody>`;
+
+        studentsInClass.sort((a, b) => parseInt(a.rollNumber, 10) - parseInt(b.rollNumber, 10)).forEach(s => {
+            const { finalScore, grade } = calculateFinalScoreAndGrade(s, activeCourse);
+            tableHTML += `<tr class="hover:bg-slate-800"><td class="sticky-col p-2 border border-slate-600 text-left font-medium">
+                        <div>${s.rollNumber}. ${s.realName} <span class="text-slate-400 text-sm">(${s.nickname || '-'})</span></div>
+                        <div class="text-xs text-slate-400 font-normal">ID: ${s.studentId} | Grade: ${s.gradeLevel}/${s.room}</div>
+                    </td>`;
+            activeCourse.assessmentComponents.forEach(component => {
+                component.categories.forEach(cat => {
+                    const catScores = getCategoryScores(s, component.name, cat, activeCourse);
+                    const categoryPercentage = (catScores.max > 0 ? (catScores.current / catScores.max) * 100 : 0);
+                    if (cat.subItems && cat.subItems.length > 0) {
+                        cat.subItems.forEach(sub => {
+                            const subScore = s.scores[activeCourse.id]?.[component.name]?.[cat.name]?.[sub.id] || '';
+                            tableHTML += `<td class="p-1 border border-slate-600"><input type="number" class="w-full p-1 text-center score-input bg-slate-800" value="${subScore}" onchange="updateSubScore('${s.studentId}', '${component.name}', '${cat.name}', '${sub.id}', this.value)" min="0" max="${sub.maxScore}"></td>`;
+                        });
+                        tableHTML += `<td class="p-2 border border-slate-600 text-center font-medium category-total-cell">
+                                ${formatNumber(catScores.current)}<br>(${Math.round(categoryPercentage)}%)
+                            </td>`;
+                    } else {
+                        const score = s.scores[activeCourse.id]?.[component.name]?.[cat.name] || '';
+                        const currentScore = parseFloat(score || 0);
+                        const singleCategoryPercentage = (100 > 0 ? (currentScore / 100) * 100 : 0);
+                        tableHTML += `<td class="p-1 border border-slate-600"><input type="number" class="w-full p-1 text-center score-input bg-slate-800" value="${score}" onchange="updateSubScore('${s.studentId}', '${component.name}', '${cat.name}', null, this.value)" min="0" max="100"></td>`;
+                        tableHTML += `<td class="p-2 border border-slate-600 text-center font-medium category-total-cell">
+                                ${formatNumber(currentScore)}<br>(${Math.round(singleCategoryPercentage)}%)
+                            </td>`;
+                    }
+                });
+            });
+            tableHTML += `<td class="p-2 border border-slate-600 text-center font-bold final-score-cell">${formatNumber(finalScore)}</td><td class="p-2 border border-slate-600 text-center font-bold final-grade-cell">${grade}</td></tr>`;
+        });
+
+        tableHTML += `</tbody></table>`;
+        container.innerHTML = tableHTML;
+    }
+
+    // --- SUMMARY & REPORTS ---
+    function renderSummary() {
+        const container = document.getElementById('summary-table');
+        const info = document.getElementById('summary-info');
+        if (!activeCourse || !activeCourse.assessmentComponents || activeCourse.assessmentComponents.length === 0) {
+            info.textContent = 'Enter scores to see the summary.';
+            info.classList.remove('hidden');
+            container.innerHTML = '';
+            document.getElementById('advanced-dashboard').classList.add('hidden');
+            return;
+        }
+
+        const studentsInClass = students.filter(s => s.gradeLevel === activeCourse.gradeLevel && s.room === activeCourse.room);
+
+        if (studentsInClass.length === 0) {
+            info.textContent = 'Enter scores to see the summary.';
+            info.classList.remove('hidden');
+            container.innerHTML = '';
+            document.getElementById('advanced-dashboard').classList.add('hidden');
+            return;
+        }
+
+        const hasCategories = activeCourse.assessmentComponents.some(component => component.categories && component.categories.length > 0);
+        if (!hasCategories) {
+            info.textContent = 'Please add Categories within your Assessment Components to see the summary.';
+            info.classList.remove('hidden');
+            container.innerHTML = '';
+            document.getElementById('advanced-dashboard').classList.add('hidden');
+            return;
+        }
+
+        info.classList.add('hidden');
+        document.getElementById('advanced-dashboard').classList.remove('hidden');
+
+        let tableHTML = `<table class="min-w-full"><thead><tr>
+                <th class="p-2 border border-slate-600 text-left">Student</th>`;
+        activeCourse.assessmentComponents.forEach((component, i) => {
+            tableHTML += `<th class="p-2 border border-slate-600 text-center" style="background-color: ${tableHeaderColors[i % tableHeaderColors.length]}">${component.name} (%)</th>`;
+        });
+        tableHTML += `<th class="p-2 border border-slate-600">Final Score</th><th class="p-2 border border-slate-600">Final Grade</th></tr></thead><tbody>`;
+
+        studentsInClass.sort((a,b) => parseFloat(calculateFinalScoreAndGrade(b, activeCourse).finalScore) - parseFloat(calculateFinalScoreAndGrade(a, activeCourse).finalScore)).forEach(s => {
+            const { finalScore, grade } = calculateFinalScoreAndGrade(s, activeCourse);
+            let rowBgClass = '';
+            let detailsButtonText = 'View Details';
+            let detailsButtonClass = 'bg-indigo-700 hover:bg-indigo-600';
+
+            if (parseFloat(finalScore) >= 70) {
+                rowBgClass = 'bg-green-900/20';
+                detailsButtonText = 'Details (Excellent)';
+                detailsButtonClass = 'bg-green-800 hover:bg-green-700';
+            } else if (parseFloat(finalScore) >= 50) {
+                rowBgClass = 'bg-yellow-900/20';
+                detailsButtonText = 'Details (Average)';
+                detailsButtonClass = 'bg-yellow-800 hover:bg-yellow-700';
+            } else {
+                rowBgClass = 'bg-red-900/20';
+                detailsButtonText = 'Details (Needs Improvement)';
+                detailsButtonClass = 'bg-red-800 hover:bg-red-700';
+            }
+
+            tableHTML += `<tr class="${rowBgClass}"><td class="p-2 border border-slate-600 font-medium">
+                        <div>${s.rollNumber}. ${s.realName} <span class="text-slate-400 text-sm">(${s.nickname || '-'})</span></div>
+                        <div class="text-xs text-slate-400 font-normal">ID: ${s.studentId}</div>
+                        <button onclick="showScoreBreakdownModal('${s.studentId}')" class="mt-1 text-xs ${detailsButtonClass} px-2 py-1 rounded transition-colors">${detailsButtonText}</button>
+                    </td>`;
+            activeCourse.assessmentComponents.forEach(component => {
+                let componentCurrentScore = 0;
+                let componentMaxWeight = 0;
+                if (!Array.isArray(component.categories)) {
+                    tableHTML += `<td class="p-2 border border-slate-600 text-center">N/A</td>`;
+                    return;
+                }
+                component.categories.forEach(cat => {
+                    const { current, max } = getCategoryScores(s, component.name, cat, activeCourse);
+                    if (max > 0) {
+                        componentCurrentScore += (current / max) * cat.weight;
+                    }
+                    componentMaxWeight += cat.weight;
+                });
+                const componentPercentage = componentMaxWeight > 0 ? (componentCurrentScore / componentMaxWeight) * 100 : 0;
+                tableHTML += `<td class="p-2 border border-slate-600 text-center">${formatNumber(componentPercentage)}%</td>`;
+            });
+            tableHTML += `<td class="p-2 border border-slate-600 text-center font-bold">${formatNumber(finalScore)}</td><td class="p-2 border border-slate-600 text-center font-bold">${grade}</td></tr>`;
+        });
+        tableHTML += `</tbody></table>`;
+        container.innerHTML = tableHTML;
+
+        renderAdvancedDashboard(studentsInClass);
+    }
+
+    function renderAdvancedDashboard(studentsInClass) {
+        const excellentUl = document.getElementById('group-excellent');
+        const averageUl = document.getElementById('group-average');
+        const improvementUl = document.getElementById('group-improvement');
+        excellentUl.innerHTML = averageUl.innerHTML = improvementUl.innerHTML = '';
+
+        let counts = { excellent: 0, average: 0, improvement: 0 };
+
+        studentsInClass.forEach(s => {
+            const { finalScore } = calculateFinalScoreAndGrade(s, activeCourse);
+            const score = parseFloat(finalScore);
+            const li = document.createElement('li');
+            li.textContent = `${s.realName} (${formatNumber(score)}%)`;
+            if (score >= 70) {
+                excellentUl.appendChild(li);
+                counts.excellent++;
+            } else if (score >= 50) {
+                averageUl.appendChild(li);
+                counts.average++;
+            } else {
+                improvementUl.appendChild(li);
+                counts.improvement++;
+            }
+        });
+
+        const ctx = document.getElementById('student-group-chart').getContext('2d');
+        if (studentGroupChartInstance) studentGroupChartInstance.destroy();
+        studentGroupChartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Excellent', 'Average', 'Needs Improvement'],
+                datasets: [{
+                    data: [counts.excellent, counts.average, counts.improvement],
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#e2e8f0'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderAdminDashboard() {
+        const dashboardContent = document.getElementById('admin-dashboard-content');
+        dashboardContent.innerHTML = '';
+        if (courses.length === 0) {
+            dashboardContent.innerHTML = '<p class="text-slate-400 text-center text-lg mt-8">No course data available.</p>';
+            return;
+        }
+
+        let totalPossibleEntriesOverall = 0;
+        let filledEntriesOverall = 0;
+
+        courses.forEach(course => {
+            const studentsInThisCourse = students.filter(s => s.gradeLevel === course.gradeLevel && s.room === course.room);
+            let courseTotalPossibleEntries = 0;
+            let courseFilledEntries = 0;
+
+            if (course.assessmentComponents && course.assessmentComponents.length > 0) {
+                studentsInThisCourse.forEach(s => {
+                    course.assessmentComponents.forEach(component => {
+                        if (component.categories && component.categories.length > 0) {
+                            component.categories.forEach(cat => {
+                                if (cat.subItems && cat.subItems.length > 0) {
+                                    cat.subItems.forEach(sub => {
+                                        courseTotalPossibleEntries++;
+                                        if (s.scores[course.id]?.[component.name]?.[cat.name]?.[sub.id] !== undefined && s.scores[course.id]?.[component.name]?.[cat.name]?.[sub.id] !== null && !isNaN(s.scores[course.id]?.[component.name]?.[cat.name]?.[sub.id])) {
+                                            courseFilledEntries++;
+                                        }
+                                    });
+                                } else {
+                                    courseTotalPossibleEntries++;
+                                    if (s.scores[course.id]?.[component.name]?.[cat.name] !== undefined && s.scores[course.id]?.[component.name]?.[cat.name] !== null && !isNaN(s.scores[course.id]?.[component.name]?.[cat.name])) {
+                                        courseFilledEntries++;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                });
+            }
+            totalPossibleEntriesOverall += courseTotalPossibleEntries;
+            filledEntriesOverall += courseFilledEntries;
+
+            const courseName = `${course.subject} (${course.gradeLevel}/${course.room}) - ${course.academicYear} ${course.semester}`;
+            const teacherName = course.teacher?.realName || 'N/A';
+            let totalCourseScore = 0, gradedStudentsCount = 0, highestScoreInClass = 0, lowestScoreInClass = 100;
+            let gradeCounts = { 'A+': 0, 'A': 0, 'A-': 0, 'B+': 0, 'B': 0, 'B-': 0, 'C+': 0, 'C': 0, 'C-': 0, 'D': 0, 'F': 0, 'N/A': 0 };
+
+            studentsInThisCourse.forEach(s => {
+                const { finalScore, grade } = calculateFinalScoreAndGrade(s, course);
+                const score = parseFloat(finalScore);
+                if (grade !== 'N/A' && !isNaN(score)) {
+                    totalCourseScore += score;
+                    gradedStudentsCount++;
+                    if(gradeCounts[grade] !== undefined) gradeCounts[grade]++;
+                    if (score > highestScoreInClass) highestScoreInClass = score;
+                    if (score < lowestScoreInClass) lowestScoreInClass = score;
+                } else {
+                    gradeCounts['N/A']++;
+                }
+            });
+
+            const averageCourseScore = gradedStudentsCount > 0 ? (totalCourseScore / gradedStudentsCount) : 'N/A';
+            const displayHighestScore = gradedStudentsCount > 0 ? formatNumber(highestScoreInClass) : 'N/A';
+            const displayLowestScore = gradedStudentsCount > 0 ? formatNumber(lowestScoreInClass) : 'N/A';
+            const scoreEntryProgress = courseTotalPossibleEntries > 0 ? (courseFilledEntries / courseTotalPossibleEntries) * 100 : 0;
+
+
+            dashboardContent.innerHTML += `
+                <div class="p-6 rounded-lg border card">
+                    <h4 class="text-xl font-semibold mb-2 text-blue-300">${courseName}</h4>
+                    <p class="text-slate-400 mb-4">Teacher: ${teacherName}</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                        <div><p class="text-sm text-slate-400">Students</p><p class="text-2xl font-bold text-white">${studentsInThisCourse.length}</p></div>
+                        <div><p class="text-sm text-slate-400">Avg. Score</p><p class="text-lg font-bold">${formatNumber(averageCourseScore)}%</p></div>
+                        <div><p class="text-sm text-blue-300">Highest</p><p class="text-lg font-bold">${displayHighestScore}%</p></div>
+                        <div><p class="text-sm text-purple-300">Lowest</p><p class="text-lg font-bold">${displayLowestScore}%</p></div>
+                        <div class="col-span-full mt-2">
+                            <p class="text-sm text-slate-400">Score Entry Progress</p>
+                            <div class="w-full bg-slate-700 rounded-full h-3">
+                                <div class="bg-indigo-500 h-3 rounded-full" style="width: ${scoreEntryProgress}%"></div>
+                            </div>
+                            <p class="text-right text-xs text-slate-400 mt-1">${Math.round(scoreEntryProgress)}% Complete</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 space-y-2">
+                        <details class="p-2 bg-green-900/50 rounded-lg">
+                            <summary class="font-bold text-green-300 cursor-pointer flex justify-between items-center">
+                                Excellent Students (${gradeCounts['A+'] + gradeCounts['A'] + gradeCounts['A-'] + gradeCounts['B+'] + gradeCounts['B']}) <span class="summary-arrow">▶</span>
+                            </summary>
+                            <ul class="mt-2 text-sm text-green-400 list-disc list-inside">
+                                ${studentsInThisCourse.filter(s => parseFloat(calculateFinalScoreAndGrade(s, course).finalScore) >= 70).map(s => `<li>${s.realName} (${formatNumber(calculateFinalScoreAndGrade(s, course).finalScore)}%)</li>`).join('')}
+                            </ul>
+                        </details>
+                        <details class="p-2 bg-yellow-900/50 rounded-lg">
+                            <summary class="font-bold text-yellow-300 cursor-pointer flex justify-between items-center">
+                                Average Students (${gradeCounts['C+'] + gradeCounts['C'] + gradeCounts['C-'] + gradeCounts['B-']}) <span class="summary-arrow">▶</span>
+                            </summary>
+                            <ul class="mt-2 text-sm text-yellow-400 list-disc list-inside">
+                                ${studentsInThisCourse.filter(s => parseFloat(calculateFinalScoreAndGrade(s, course).finalScore) >= 50 && parseFloat(calculateFinalScoreAndGrade(s, course).finalScore) < 70).map(s => `<li>${s.realName} (${formatNumber(calculateFinalScoreAndGrade(s, course).finalScore)}%)</li>`).join('')}
+                            </ul>
+                        </details>
+                        <details class="p-2 bg-red-900/50 rounded-lg">
+                            <summary class="font-bold text-red-300 cursor-pointer flex justify-between items-center">
+                                Needs Improvement Students (${gradeCounts['D'] + gradeCounts['F'] + gradeCounts['N/A']}) <span class="summary-arrow">▶</span>
+                            </summary>
+                            <ul class="mt-2 text-sm text-red-400 list-disc list-inside">
+                                ${studentsInThisCourse.filter(s => parseFloat(calculateFinalScoreAndGrade(s, course).finalScore) < 50 || isNaN(parseFloat(calculateFinalScoreAndGrade(s, course).finalScore))).map(s => `<li>${s.realName} (${formatNumber(calculateFinalScoreAndGrade(s, course).finalScore)}%)</li>`).join('')}
+                            </ul>
+                        </details>
+                    </div>
+                </div>`;
+        });
+
+        const overallScoreEntryProgress = totalPossibleEntriesOverall > 0 ? (filledEntriesOverall / totalPossibleEntriesOverall) * 100 : 0;
+
+        dashboardContent.insertAdjacentHTML('afterbegin', `
+            <div class="mb-8 p-6 rounded-lg border card">
+                <h4 class="text-xl font-semibold mb-4 text-indigo-300">Overall School Overview</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div><p class="text-sm text-slate-400">Total Courses</p><p class="text-2xl font-bold text-white">${courses.length}</p></div>
+                    <div><p class="text-sm text-slate-400">Total Students</p><p class="text-2xl font-bold text-white">${students.length}</p></div>
+                    <div><p class="text-sm text-slate-400">Active Teachers</p><p class="text-2xl font-bold text-white">${new Set(courses.map(c => c.teacher?.realName).filter(name => name)).size}</p></div>
+                </div>
+                <div class="mt-6">
+                    <h5 class="font-semibold text-lg mb-2">Overall Score Entry Progress</h5>
+                    <div class="w-full bg-slate-700 rounded-full h-4">
+                        <div class="bg-indigo-500 h-4 rounded-full" style="width: ${overallScoreEntryProgress}%"></div>
+                    </div>
+                    <p class="text-right text-sm text-slate-400 mt-1">${Math.round(overallScoreEntryProgress)}% Complete</p>
+                </div>
+            </div>
+        `);
+    }
+
+    // --- TABS & MAIN RENDER ---
+    function showTab(tabName) {
+        document.getElementById('score-entry-section').classList.toggle('hidden', tabName !== 'score-entry');
+        document.getElementById('summary-section').classList.toggle('hidden', tabName !== 'summary');
+        document.getElementById('score-entry-tab').classList.toggle('active', tabName === 'score-entry');
+        document.getElementById('summary-tab').classList.toggle('active', tabName === 'summary');
+        renderAll();
+    }
+
+    function renderAll() {
+        // If no active course, clear sections and display info messages
+        if (!activeCourse) {
+            const info = document.getElementById('score-entry-info');
+            info.textContent = 'Please select an Academic Year, Semester, Course, and save Teacher Info to begin.';
+            info.classList.remove('hidden');
+            document.getElementById('score-input-table').innerHTML = '';
+            document.getElementById('summary-table').innerHTML = '';
+            document.getElementById('summary-info').classList.remove('hidden');
+
+            renderTeacherInfoSection();
+            renderAssessmentComponents();
+            updateCategoryManagementSectionState();
+
+            if (studentGroupChartInstance) studentGroupChartInstance.destroy();
+            document.getElementById('advanced-dashboard').classList.add('hidden');
+
+            const totalCompWeightSpan = document.getElementById('current-total-grading-period-weight');
+            const compWarningDiv = document.getElementById('grading-period-warning');
+            if (totalCompWeightSpan) totalCompWeightSpan.textContent = '0';
+            if (compWarningDiv) compWarningDiv.classList.add('hidden');
+
+            const totalCatWeightSpan = document.getElementById('current-total-category-weight');
+            const catWarningDiv = document.getElementById('category-weight-warning');
+            if (totalCatWeightSpan) totalCatWeightSpan.textContent = '0';
+            if (catWarningDiv) catWarningDiv.classList.add('hidden');
+
+            return; // Exit renderAll if no active course
+        }
+
+        // --- If activeCourse is NOT null, proceed with rendering based on its state ---
+        renderCategories(); // Render category settings
+        renderStudents(); // Render student list
+        renderTeacherInfoSection(); // Render teacher info section (display or edit form)
+        renderAssessmentComponents();
+        updateCategoryManagementSectionState(); // This will handle category UI state and total weight display
+
+        // Render either score table or summary based on active tab
+        const activeTab = document.querySelector('.tab-button.active').id;
+        if (activeTab === 'summary-tab') {
+            renderSummary();
+        } else {
+            renderScoresTable();
+        }
+    }
+
+    // --- EVENT LISTENERS & SETUP ---
+    // Sets up various event listeners for input fields
+    function setupEventListeners() {
+        // New: Academic Year and Semester selects
+        document.getElementById('select-academic-year').addEventListener('change', updateAcademicYearSelection);
+        document.getElementById('select-semester').addEventListener('change', updateSemesterSelection);
+        document.getElementById('select-subject').addEventListener('change', updateCourseSelection);
+        document.getElementById('select-grade-level').addEventListener('change', updateCourseSelection);
+        document.getElementById('select-room').addEventListener('change', updateCourseSelection);
+
+        // Assessment Component inputs: Enter to add component
+        document.getElementById('new-grading-period-name').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') addGradingPeriod();
+        });
+        document.getElementById('new-grading-period-weight').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') addGradingPeriod();
+        });
+
+        // Category inputs: Enter to add category
+        document.getElementById('new-category-name').addEventListener('keydown', (e) => {
+            if(e.key === 'Enter') addCategory();
+        });
+        document.getElementById('new-category-weight').addEventListener('keydown', (e) => {
+            if(e.key === 'Enter') addCategory();
+        });
+
+        // New sub-item inputs: Enter to add sub-item (delegated)
+        document.getElementById('category-management-section').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.id.startsWith('new-sub-item-name-')) {
+                const catIndex = parseInt(e.target.id.replace('new-sub-item-name-', ''));
+                addSubItem(catIndex);
+            } else if (e.key === 'Enter' && e.target.id.startsWith('new-sub-item-max-score-')) {
+                const catIndex = parseInt(e.target.id.replace('new-sub-item-max-score-', ''));
+                addSubItem(catIndex);
+            }
+        });
+
+        // New student inputs: Enter to add student
+        document.querySelectorAll('.new-student-input').forEach(input => {
+            input.addEventListener('keydown', (e) => {
+                if(e.key === 'Enter' && !document.getElementById('add-student-button').disabled) {
+                    addStudent();
+                }
+            });
+        });
+
+        // Teacher info inputs: Enter to save teacher info
+        document.querySelectorAll('.teacher-info-input').forEach(input => {
+            input.addEventListener('keydown', (e) => {
+                if(e.key === 'Enter' && !document.getElementById('save-teacher-info-button').disabled) {
+                    saveTeacherInfo();
+                }
+            });
+        });
+
+        // Score input table: Enter to move to next input
+        document.getElementById('score-input-table').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.classList.contains('score-input')) {
+                e.preventDefault(); // Prevent form submission
+                const inputs = Array.from(document.querySelectorAll('.score-input'));
+                const currentIndex = inputs.indexOf(e.target);
+                const nextInput = inputs[currentIndex + 1];
+                if (nextInput) {
+                    nextInput.focus();
+                    nextInput.select(); // Select text for easy overwriting
+                }
+            }
+        });
+
+        // Admin password input: Enter to check password
+        document.getElementById('admin-password-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                checkAdminPassword();
+            }
+        });
+
+        // Reset password input: Enter to confirm reset
+        document.getElementById('reset-password-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                confirmResetCourse();
+            }
+        });
+
+        // Settings logo URL input: Enter to save settings
+        document.getElementById('settings-logo-url').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                saveSettings();
+            }
+        });
+    }
+
+    // --- PAGE LOAD ---
+    // Executes when the window finishes loading
+    window.onload = async function() {
+        setupEventListeners();
+
+        // Show loading overlay and connect to server
+        document.getElementById('loading-overlay').classList.remove('hidden');
+        document.getElementById('loading-text').textContent = "Connecting to server...";
+
+        socket.on('connect', () => {
+            document.getElementById('loading-text').textContent = "Connected. Requesting data...";
+            // Request initial data from the server
+            socket.emit('requestInitialData', {
+                // You can pass local storage values to help the server find the right data if needed
+                academicYear: localStorage.getItem('selectedAcademicYear') || '',
+                semester: localStorage.getItem('selectedSemester') || '',
+                subject: localStorage.getItem('selectedSubject') || '',
+                grade: localStorage.getItem('selectedGrade') || '',
+                room: localStorage.getItem('selectedRoom') || ''
+            });
+        });
+
+        // Listen for initial data from the server
+        socket.on('initialData', (data) => {
+            document.getElementById('loading-text').textContent = "Data received. Initializing app...";
+            handleDataFromServer(data);
+            populateDropdowns();
+            updateCourseSelection();
+            document.getElementById('loading-overlay').classList.add('hidden');
+        });
+
+        // Listen for real-time updates from the server
+        socket.on('dataUpdated', (data) => {
+            console.log("Real-time update received.");
+            handleDataFromServer(data);
+            showToast('Real-time data updated.', 'info', 1000);
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('loading-text').textContent = "Disconnected from server. Reconnecting...";
+            document.getElementById('loading-overlay').classList.remove('hidden');
+        });
+
+        socket.on('error', (message) => {
+            showToast(`Server Error: ${message}`, 'error', 5000);
+        });
+    };
+    </script>
+</body>
+</html>
