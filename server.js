@@ -8,11 +8,10 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Middleware
 app.use(express.json());
 app.use(express.static('public'));
 
-// ข้อมูลเริ่มต้นสำหรับ dropdowns
+// ข้อมูลเริ่มต้นสำหรับ dropdowns ที่ต้องส่งไปให้ Front-end
 const subjectsList = ['English', 'Maths', 'Science', 'Thai', 'ICT', 'Global Skills', 'ART', 'Sport Club', 'Geography', 'Music', 'Wellbeing', 'History', 'Data Literacy', 'Reading & Presentation', 'Problem Solving', 'Chinese', 'Writing', 'Presentation'];
 const gradeLevelsList = Array.from({ length: 13 }, (_, i) => `Y${i + 1}`);
 const academicYears = [];
@@ -29,7 +28,6 @@ mongoose.connect(process.env.MONGODB_URI, {
 }).then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('Could not connect to MongoDB', err));
 
-// Socket.IO Connection
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
@@ -38,6 +36,7 @@ io.on('connection', (socket) => {
         try {
             const courses = await Course.find({});
             const students = await Student.find({});
+
             // ส่งข้อมูล dropdowns กลับไปด้วย
             socket.emit('initialData', { 
                 courses, 
@@ -53,6 +52,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ส่วนอื่นๆ ของโค้ด server.js เหมือนเดิม
     socket.on('updateData', async (data) => {
         try {
             if (data.activeCourse) {
